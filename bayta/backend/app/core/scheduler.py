@@ -39,6 +39,16 @@ def register_jobs() -> None:
         id="caldav_sync",
         replace_existing=True,
     )
+    from app.sync.shared_album import sync_shared_albums
+
+    scheduler.add_job(
+        sync_shared_albums,
+        "interval",
+        minutes=30,
+        jitter=120,
+        id="shared_album_sync",
+        replace_existing=True,
+    )
     scheduler.add_job(
         _refresh_occurrences_job,
         "cron",

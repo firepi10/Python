@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { ClipboardCheck, Images, ListTodo, UtensilsCrossed } from "lucide-react";
+import { ClipboardCheck, ListTodo, UtensilsCrossed } from "lucide-react";
 import { EmptyState } from "./components/EmptyState";
 import { ToastProvider } from "./components/Toast";
 import { useSSE } from "./hooks/useSSE";
 import { CalendarView } from "./views/calendar/CalendarView";
 import { Gallery } from "./views/Gallery";
 import { KioskShell } from "./views/KioskShell";
+import { PhotosView } from "./views/photos/PhotosView";
+import { Screensaver } from "./views/screensaver/Screensaver";
 import { SettingsView } from "./views/settings/SettingsView";
 
 function applyTheme() {
@@ -41,12 +43,10 @@ export default function App() {
             path="lists"
             element={<EmptyState icon={ListTodo} title="Lists" hint="Shared grocery and to-do lists arrive in M6." />}
           />
-          <Route
-            path="photos"
-            element={<EmptyState icon={Images} title="Photos" hint="iCloud Shared Album sync and screensaver arrive in M5." />}
-          />
+          <Route path="photos" element={<PhotosView />} />
           <Route path="settings" element={<SettingsView />} />
         </Route>
+        <Route path="/screensaver" element={<Screensaver />} />
         <Route path="/dev/gallery" element={<Gallery />} />
       </Routes>
     </ToastProvider>

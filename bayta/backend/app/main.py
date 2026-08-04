@@ -7,7 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import accounts, calendar, countdowns, health, profiles, stream, weather
+from app.api import accounts, calendar, countdowns, health, photos, profiles, stream, weather
 from app.api import settings as settings_api
 from app.core import scheduler
 from app.core.config import get_settings
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
         health.router,
         accounts.router,
         calendar.router,
+        photos.router,
         profiles.router,
         settings_api.router,
         countdowns.router,
@@ -45,6 +46,13 @@ def create_app() -> FastAPI:
         stream.router,
     ):
         app.include_router(router, prefix="/api")
+
+    settings.ensure_dirs()
+    app.mount(
+        "/media/photos",
+        StaticFiles(directory=settings.photos_dir, check_dir=False),
+        name="photos",
+    )
 
     if FRONTEND_DIST.exists():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")

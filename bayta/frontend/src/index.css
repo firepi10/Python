@@ -41,6 +41,15 @@ body {
   opacity: 0.4;
 }
 
+@keyframes bayta-kenburns {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.09) translate(-1.2%, 1%);
+  }
+}
+
 @keyframes bayta-toast-in {
   from {
     transform: translateY(16px);
