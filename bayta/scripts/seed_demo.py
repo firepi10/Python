@@ -11,7 +11,20 @@ sys.path.insert(0, str(BACKEND))
 
 from app.core.config import get_settings  # noqa: E402
 from app.db.migrate import upgrade_to_head  # noqa: E402
-from app.db.models import Countdown, Event, Occurrence, PendingOp, Profile  # noqa: E402
+from app.db.models import (  # noqa: E402
+    Chore,
+    ChoreCompletion,
+    Countdown,
+    Event,
+    ListItem,
+    ListModel,
+    Meal,
+    MealIngredient,
+    MealPlanEntry,
+    Occurrence,
+    PendingOp,
+    Profile,
+)
 from app.db.session import session_factory  # noqa: E402
 from app.services.calendar_service import create_local_event  # noqa: E402
 
@@ -26,7 +39,20 @@ def main() -> None:
     upgrade_to_head()
     db = session_factory()()
 
-    for model in (Occurrence, PendingOp, Event, Countdown, Profile):
+    for model in (
+        Occurrence,
+        PendingOp,
+        Event,
+        Countdown,
+        ChoreCompletion,
+        Chore,
+        MealPlanEntry,
+        MealIngredient,
+        Meal,
+        ListItem,
+        ListModel,
+        Profile,
+    ):
         db.query(model).delete()
     db.commit()
 
@@ -73,8 +99,64 @@ def main() -> None:
         create_local_event(db, timezone=get_settings().timezone, **spec)
 
     db.add(Countdown(title="Beach week", target_date=(today + timedelta(days=32)).date(), icon="🏖️"))
+
+    # meals + this week's plan
+    meals = {
+        "tacos": Meal(name="Taco night", icon="🌮", is_favorite=True),
+        "salmon": Meal(name="Salmon & rice", icon="🐟", is_favorite=True),
+        "pasta": Meal(name="Pasta bolognese", icon="🍝"),
+        "pancakes": Meal(name="Pancakes", icon="🥞", is_favorite=True),
+        "stirfry": Meal(name="Veggie stir-fry", icon="🥦"),
+    }
+    db.add_all(meals.values())
+    db.flush()
+    for meal, items in {
+        "tacos": ["Tortillas", "Ground beef", "Salsa", "Cheddar"],
+        "salmon": ["Salmon fillets", "Rice", "Broccoli"],
+        "pasta": ["Spaghetti", "Ground beef", "Tomato passata"],
+        "pancakes": ["Flour", "Eggs", "Maple syrup"],
+        "stirfry": ["Broccoli", "Peppers", "Soy sauce", "Noodles"],
+    }.items():
+        for i, text in enumerate(items):
+            db.add(MealIngredient(meal_id=meals[meal].id, text=text, sort_order=i))
+    week = next_weekday(today, 0) - timedelta(days=7)
+    plan = [
+        (0, "dinner", "tacos"), (1, "dinner", "salmon"), (2, "dinner", "pasta"),
+        (3, "dinner", "stirfry"), (5, "breakfast", "pancakes"), (5, "dinner", "salmon"),
+    ]
+    for offset, slot, key in plan:
+        d = (week + timedelta(days=offset)).date()
+        if d >= today.date() - timedelta(days=7):
+            db.add(MealPlanEntry(date=d, slot=slot, meal_id=meals[key].id))
+
+    # chores
+    chores = [
+        Chore(title="Make your bed", icon="🛏️", profile_id=zoe.id, rrule="FREQ=DAILY", points=1),
+        Chore(title="Feed the dog", icon="🐕", profile_id=max_.id, rrule="FREQ=DAILY", points=1),
+        Chore(title="Empty dishwasher", icon="🍽️", profile_id=zoe.id,
+              rrule="FREQ=WEEKLY;BYDAY=MO,WE,FR", points=2),
+        Chore(title="Take out trash", icon="🗑️", profile_id=max_.id,
+              rrule="FREQ=WEEKLY;BYDAY=TH", points=3),
+        Chore(title="Water plants", icon="🪴", profile_id=mom.id,
+              rrule="FREQ=WEEKLY;BYDAY=SA", points=1),
+    ]
+    db.add_all(chores)
+    db.flush()
+    db.add(ChoreCompletion(chore_id=chores[0].id, due_date=today.date(), points_awarded=1))
+
+    # lists
+    grocery = ListModel(name="Groceries", kind="grocery", icon="🛒", sort_order=0)
+    todo = ListModel(name="To-Do", kind="todo", icon="✅", sort_order=1)
+    db.add_all([grocery, todo])
+    db.flush()
+    for i, text in enumerate(["Milk", "Eggs", "Bananas", "Coffee beans"]):
+        db.add(ListItem(list_id=grocery.id, text=text, sort_order=i))
+    db.add(ListItem(list_id=grocery.id, text="Paper towels", done=True, sort_order=9))
+    for i, text in enumerate(["Fix the gate latch", "Book dentist for Zoe", "RSVP to the Nguyens"]):
+        db.add(ListItem(list_id=todo.id, text=text, sort_order=i))
+
     db.commit()
-    print(f"seeded {len(events)} events, 4 profiles, 1 countdown → {get_settings().db_path}")
+    print(f"seeded demo family (events, meals, chores, lists) → {get_settings().db_path}")
 
 
 if __name__ == "__main__":
