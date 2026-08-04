@@ -16,7 +16,10 @@ mkdirSync(artifacts, { recursive: true });
 const PORT = 8777;
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const PAGES = [{ name: "home", path: "/" }];
+const PAGES = [
+  { name: "calendar", path: "/calendar" },
+  { name: "gallery", path: "/dev/gallery" },
+];
 
 const VIEWPORTS = [
   { name: "landscape", width: 1920, height: 1080 },

@@ -1,35 +1,15 @@
 import { useEffect } from "react";
-import { Route, Routes } from "react-router-dom";
-import { format } from "date-fns";
-import { useClock } from "./hooks/useClock";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { CalendarDays, ClipboardCheck, Images, ListTodo, Settings, UtensilsCrossed } from "lucide-react";
+import { EmptyState } from "./components/EmptyState";
+import { ToastProvider } from "./components/Toast";
+import { Gallery } from "./views/Gallery";
+import { KioskShell } from "./views/KioskShell";
 
 function applyTheme() {
   const hour = new Date().getHours();
   const dark = hour >= 19 || hour < 7;
   document.documentElement.dataset.theme = dark ? "dark" : "light";
-}
-
-function HomeShell() {
-  const now = useClock();
-  return (
-    <div
-      className="kiosk flex h-full flex-col items-center justify-center"
-      style={{ background: "var(--bg-gradient)" }}
-    >
-      <div className="tnum text-[16vw] font-thin leading-none tracking-tight" data-testid="clock">
-        {format(now, "h:mm")}
-      </div>
-      <div className="mt-4 text-[2.2vw] font-light" style={{ color: "var(--text-secondary)" }}>
-        {format(now, "EEEE, MMMM d")}
-      </div>
-      <div
-        className="absolute bottom-10 text-[1.2vw] font-medium tracking-[0.3em] uppercase"
-        style={{ color: "var(--text-tertiary)" }}
-      >
-        Bayta
-      </div>
-    </div>
-  );
 }
 
 export default function App() {
@@ -40,8 +20,37 @@ export default function App() {
   }, []);
 
   return (
-    <Routes>
-      <Route path="/" element={<HomeShell />} />
-    </Routes>
+    <ToastProvider>
+      <Routes>
+        <Route path="/" element={<KioskShell />}>
+          <Route index element={<Navigate to="/calendar" replace />} />
+          <Route
+            path="calendar"
+            element={<EmptyState icon={CalendarDays} title="Calendar" hint="Arrives in M3 — month, week and day views with per-person colors." />}
+          />
+          <Route
+            path="meals"
+            element={<EmptyState icon={UtensilsCrossed} title="Meals" hint="Weekly planner and favorites arrive in M6." />}
+          />
+          <Route
+            path="chores"
+            element={<EmptyState icon={ClipboardCheck} title="Chores" hint="Chore chart with star rewards arrives in M6." />}
+          />
+          <Route
+            path="lists"
+            element={<EmptyState icon={ListTodo} title="Lists" hint="Shared grocery and to-do lists arrive in M6." />}
+          />
+          <Route
+            path="photos"
+            element={<EmptyState icon={Images} title="Photos" hint="iCloud Shared Album sync and screensaver arrive in M5." />}
+          />
+          <Route
+            path="settings"
+            element={<EmptyState icon={Settings} title="Settings" hint="Accounts, sleep schedule and device controls arrive in M7." />}
+          />
+        </Route>
+        <Route path="/dev/gallery" element={<Gallery />} />
+      </Routes>
+    </ToastProvider>
   );
 }

@@ -32,3 +32,22 @@ body {
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--surface-border);
 }
+
+.touch-btn:active {
+  transform: scale(0.96);
+}
+
+.touch-btn:disabled {
+  opacity: 0.4;
+}
+
+@keyframes bayta-toast-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
