@@ -1,0 +1,74 @@
+/* Bayta design tokens — Apple-inspired, GPU-friendly.
+   Rule: animate only transform/opacity; at most one backdrop-filter surface on screen. */
+
+:root {
+  /* type */
+  --font-sans: "Inter Variable", -apple-system, "SF Pro Display", system-ui, sans-serif;
+  --tnum: "tnum" 1, "cv05" 1;
+
+  /* radii */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  /* motion */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 180ms;
+  --dur-med: 320ms;
+  --dur-slow: 600ms;
+
+  /* light theme */
+  --bg: #f5f5f7;
+  --bg-gradient: linear-gradient(160deg, #fbfbfd 0%, #eef0f4 60%, #e8ebf1 100%);
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --surface-border: rgba(0, 0, 0, 0.06);
+  --text: #1d1d1f;
+  --text-secondary: rgba(29, 29, 31, 0.62);
+  --text-tertiary: rgba(29, 29, 31, 0.38);
+  --accent: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, 0.14);
+  --danger: #ff453a;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.05), 0 12px 32px rgba(0, 0, 0, 0.07);
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.18);
+  --glass-blur: 18px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0b0f;
+  --bg-gradient: linear-gradient(160deg, #131318 0%, #0b0b0f 55%, #08080c 100%);
+  --surface: rgba(28, 28, 34, 0.72);
+  --surface-solid: #1c1c22;
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --text: #f5f5f7;
+  --text-secondary: rgba(245, 245, 247, 0.64);
+  --text-tertiary: rgba(245, 245, 247, 0.38);
+  --accent: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, 0.22);
+  --danger: #ff453a;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.45);
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* reduced-glass mode: kiosk fallback if blur costs frames on the Pi */
+:root[data-glass="reduced"] {
+  --glass-blur: 0px;
+}
+:root[data-glass="reduced"] .glass {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--surface-solid);
+}
+
+/* profile palette — Skylight-style per-person colors */
+:root {
+  --profile-blue: #0a84ff;
+  --profile-purple: #bf5af2;
+  --profile-pink: #ff2d55;
+  --profile-orange: #ff9f0a;
+  --profile-green: #30d158;
+  --profile-teal: #64d2ff;
+  --profile-yellow: #ffd60a;
+  --profile-red: #ff453a;
+}

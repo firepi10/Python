@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@import "./theme/tokens.css";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+.kiosk * {
+  cursor: none !important;
+}
+
+.tnum {
+  font-feature-settings: var(--tnum);
+  font-variant-numeric: tabular-nums;
+}
+
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--surface-border);
+}
