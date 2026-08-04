@@ -18,6 +18,12 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 const PAGES = [
   { name: "calendar", path: "/calendar" },
+  { name: "meals", path: "/meals" },
+  { name: "chores", path: "/chores" },
+  { name: "lists", path: "/lists" },
+  { name: "photos", path: "/photos" },
+  { name: "settings", path: "/settings" },
+  { name: "screensaver", path: "/screensaver" },
   { name: "gallery", path: "/dev/gallery" },
 ];
 
