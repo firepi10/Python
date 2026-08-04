@@ -144,6 +144,8 @@ install_services() {
         run cp /opt/bayta/current/os/config/journald-bayta.conf /etc/systemd/journald.conf.d/bayta.conf
     }
     run cp /opt/bayta/current/os/config/avahi-bayta.service /etc/avahi/services/bayta.service
+    # allow the backend's "Update now" button to start the update unit
+    run bash -c 'echo "bayta ALL=(root) NOPASSWD: /usr/bin/systemctl start bayta-update.service" > /etc/sudoers.d/bayta && chmod 440 /etc/sudoers.d/bayta'
     run systemctl daemon-reload
     run systemctl enable --now bayta-backend.service bayta-update.timer avahi-daemon
 }

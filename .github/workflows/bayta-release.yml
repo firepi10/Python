@@ -1,0 +1,50 @@
+name: bayta-release
+
+on:
+  push:
+    tags: ["bayta-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: bayta/frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: bayta/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Assemble tarball
+        id: assemble
+        run: |
+          VERSION="${GITHUB_REF_NAME#bayta-v}"
+          echo "$VERSION" > bayta/VERSION
+          tar -czf "bayta-$VERSION.tar.gz" \
+            --exclude='bayta/frontend/node_modules' \
+            --exclude='bayta/backend/.venv' \
+            --exclude='bayta/backend/var' \
+            --exclude='bayta/artifacts' \
+            bayta
+          SHA=$(sha256sum "bayta-$VERSION.tar.gz" | cut -d' ' -f1)
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/bayta-$VERSION.tar.gz"
+          jq -n --arg v "$VERSION" --arg u "$URL" --arg s "$SHA" \
+            '{version: $v, url: $u, sha256: $s}' > latest.json
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Bayta ${{ steps.assemble.outputs.version }}
+          files: |
+            bayta-${{ steps.assemble.outputs.version }}.tar.gz
+            latest.json

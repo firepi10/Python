@@ -62,3 +62,24 @@ def reload_ui() -> dict:
     """Ask every connected UI (the wall included) to refresh itself."""
     bus.publish("reload")
     return {"ok": True}
+
+
+@router.post("/update-now")
+def update_now() -> dict:
+    """Kick the systemd update unit (allowed by a scoped sudoers rule that the
+    installer writes). Off-Pi this reports not-available instead of failing."""
+    import shutil as _shutil
+    import subprocess
+
+    if _shutil.which("sudo") is None or _shutil.which("systemctl") is None:
+        return {"started": False, "reason": "not running on the appliance"}
+    try:
+        subprocess.run(
+            ["sudo", "-n", "systemctl", "start", "bayta-update.service"],
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
+        return {"started": True}
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise HTTPException(500, f"could not start update: {exc}") from exc
