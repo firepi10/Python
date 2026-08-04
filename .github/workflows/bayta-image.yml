@@ -32,6 +32,15 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
 
+      # the action's own increase-runner-disk-size helper apt-purges a stale
+      # package list and dies on current runner images — reclaim space ourselves
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker system prune -af >/dev/null 2>&1 || true
+          df -h /
+
       - name: Assemble custom pi-gen stage
         run: |
           cp -a bayta/os/image/stage-bayta ./stage-bayta
@@ -66,7 +75,6 @@ jobs:
           keyboard-keymap: us
           keyboard-layout: English (US)
           timezone: America/New_York
-          increase-runner-disk-size: true
           verbose-output: true
 
       - name: Checksum
