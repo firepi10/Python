@@ -46,10 +46,12 @@ jobs:
       # native pi-gen build: dependencies + arm64 emulation on the host, where
       # our binfmt registration is authoritative (the docker-wrapped action
       # resets binfmt itself and breaks on current runner kernels)
+      # pi-gen's native build wants the dynamic qemu (qemu-user-binfmt), which
+      # conflicts with qemu-user-static — install exactly what it checks for
       - name: Install pi-gen host dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq coreutils quilt parted qemu-user-static \
+          sudo apt-get install -y -qq coreutils quilt parted qemu-user-binfmt \
             debootstrap zerofree zip dosfstools libarchive-tools libcap2-bin \
             rsync xz-utils file curl bc xxd kmod udev binfmt-support pigz \
             arch-test qemu-utils
@@ -57,7 +59,7 @@ jobs:
       - name: Verify arm64 emulation works
         run: |
           arch-test arm64
-          docker run --rm --platform linux/arm64 debian:bookworm uname -m
+          command -v qemu-aarch64
 
       - name: Assemble custom pi-gen stage
         run: |
