@@ -123,6 +123,7 @@
   * [Huffman](compression/huffman.py)
   * [Lempel Ziv](compression/lempel_ziv.py)
   * [Lempel Ziv Decompress](compression/lempel_ziv_decompress.py)
+  * [Lz77](compression/lz77.py)
   * [Peak Signal To Noise Ratio](compression/peak_signal_to_noise_ratio.py)
   * [Run Length Encoding](compression/run_length_encoding.py)
 
@@ -134,6 +135,8 @@
   * [Mean Threshold](computer_vision/mean_threshold.py)
   * [Mosaic Augmentation](computer_vision/mosaic_augmentation.py)
   * [Pooling Functions](computer_vision/pooling_functions.py)
+
+## [Conftest](/conftest.py)
 
 ## Conversions
   * [Astronomical Length Scale Conversion](conversions/astronomical_length_scale_conversion.py)
