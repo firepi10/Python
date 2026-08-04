@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { ClipboardCheck, Images, ListTodo, Settings, UtensilsCrossed } from "lucide-react";
+import { ClipboardCheck, Images, ListTodo, UtensilsCrossed } from "lucide-react";
 import { EmptyState } from "./components/EmptyState";
 import { ToastProvider } from "./components/Toast";
 import { useSSE } from "./hooks/useSSE";
 import { CalendarView } from "./views/calendar/CalendarView";
 import { Gallery } from "./views/Gallery";
 import { KioskShell } from "./views/KioskShell";
+import { SettingsView } from "./views/settings/SettingsView";
 
 function applyTheme() {
   const hour = new Date().getHours();
@@ -44,10 +45,7 @@ export default function App() {
             path="photos"
             element={<EmptyState icon={Images} title="Photos" hint="iCloud Shared Album sync and screensaver arrive in M5." />}
           />
-          <Route
-            path="settings"
-            element={<EmptyState icon={Settings} title="Settings" hint="Accounts, sleep schedule and device controls arrive in M7." />}
-          />
+          <Route path="settings" element={<SettingsView />} />
         </Route>
         <Route path="/dev/gallery" element={<Gallery />} />
       </Routes>

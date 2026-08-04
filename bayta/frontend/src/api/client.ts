@@ -78,6 +78,65 @@ export const api = {
     }),
 };
 
+export interface AccountCalendarDTO {
+  id: number;
+  name: string;
+  enabled: boolean;
+  profile_id: number | null;
+}
+
+export interface AccountDTO {
+  id: number;
+  label: string;
+  apple_id: string;
+  status: "ok" | "auth_failed" | "error";
+  last_sync_at: string | null;
+  last_error: string | null;
+  calendars: AccountCalendarDTO[];
+}
+
+export interface DiscoveredCalendar {
+  url: string;
+  name: string;
+}
+
+export const accountsApi = {
+  list: () => request<AccountDTO[]>("/api/accounts"),
+  test: (apple_id: string, password: string) =>
+    request<{ principal_url: string; calendars: DiscoveredCalendar[] }>("/api/accounts/test", {
+      method: "POST",
+      body: JSON.stringify({ apple_id, password }),
+    }),
+  create: (body: {
+    label: string;
+    apple_id: string;
+    password: string;
+    calendars: { url: string; name: string; enabled: boolean; profile_id: number | null }[];
+  }) => request<{ id: number }>("/api/accounts", { method: "POST", body: JSON.stringify(body) }),
+  patchCalendar: (
+    accountId: number,
+    calendarId: number,
+    body: { enabled?: boolean; profile_id?: number | null; clear_profile?: boolean },
+  ) =>
+    request(`/api/accounts/${accountId}/calendars/${calendarId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  remove: (accountId: number) => request<void>(`/api/accounts/${accountId}`, { method: "DELETE" }),
+  reauth: (accountId: number, apple_id: string, password: string) =>
+    request(`/api/accounts/${accountId}/reauth`, {
+      method: "POST",
+      body: JSON.stringify({ apple_id, password }),
+    }),
+  syncNow: () => request<{ ok: boolean }>("/api/accounts/sync-now", { method: "POST" }),
+};
+
+export const profilesApi = {
+  create: (body: { name: string; color: string; sort_order?: number }) =>
+    request<ProfileDTO>("/api/profiles", { method: "POST", body: JSON.stringify(body) }),
+  remove: (id: number) => request<void>(`/api/profiles/${id}`, { method: "DELETE" }),
+};
+
 export interface WeatherData {
   current: { temperature_2m: number; weather_code: number; is_day: number };
   daily: {

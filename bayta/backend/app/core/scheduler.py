@@ -25,10 +25,19 @@ def _refresh_occurrences_job() -> None:
 
 
 def register_jobs() -> None:
+    from app.sync.caldav_sync import run_all as caldav_run_all
     from app.sync.weather_sync import sync_weather
 
     scheduler.add_job(
         sync_weather, "interval", minutes=15, id="weather_sync", replace_existing=True
+    )
+    scheduler.add_job(
+        caldav_run_all,
+        "interval",
+        minutes=5,
+        jitter=30,
+        id="caldav_sync",
+        replace_existing=True,
     )
     scheduler.add_job(
         _refresh_occurrences_job,
