@@ -1,22 +1,48 @@
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import health
+from app.api import countdowns, health, profiles, stream, weather
+from app.api import settings as settings_api
+from app.core import scheduler
 from app.core.config import get_settings
+from app.core.events import bus
+from app.db.migrate import upgrade_to_head
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
-def create_app() -> FastAPI:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     settings = get_settings()
     settings.ensure_dirs()
+    bus.attach_loop(asyncio.get_running_loop())
+    await run_in_threadpool(upgrade_to_head)
+    if settings.scheduler_enabled:
+        scheduler.start()
+    yield
+    scheduler.shutdown()
 
-    app = FastAPI(title="Bayta", version=settings.version, docs_url="/api/docs")
 
-    app.include_router(health.router, prefix="/api")
+def create_app() -> FastAPI:
+    settings = get_settings()
+
+    app = FastAPI(title="Bayta", version=settings.version, docs_url="/api/docs", lifespan=lifespan)
+
+    for router in (
+        health.router,
+        profiles.router,
+        settings_api.router,
+        countdowns.router,
+        weather.router,
+        stream.router,
+    ):
+        app.include_router(router, prefix="/api")
 
     if FRONTEND_DIST.exists():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")

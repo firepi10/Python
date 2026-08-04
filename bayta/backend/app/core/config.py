@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     port: int = 8000
     version: str = _read_version()
     timezone: str = "America/New_York"
+    scheduler_enabled: bool = True
 
     @property
     def db_path(self) -> Path:
