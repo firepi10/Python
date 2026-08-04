@@ -1,0 +1,8 @@
+[Unit]
+Description=Bayta self-update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/bayta/current/os/update/bayta-update.sh

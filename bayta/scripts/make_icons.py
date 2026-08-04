@@ -77,4 +77,11 @@ if __name__ == "__main__":
     make(192, OUT / "icon-192.png", round_corners=True)
     # iOS applies its own mask — ship square
     make(180, OUT / "apple-touch-icon.png", round_corners=False)
+    # plymouth boot splash logo
+    plymouth = OUT.parents[2] / "os" / "plymouth" / "bayta"
+    plymouth.mkdir(parents=True, exist_ok=True)
+    img = gradient(224)
+    draw_house(img)
+    rounded(img, 0.225).save(plymouth / "logo.png")
+    print("wrote", (plymouth / "logo.png").relative_to(OUT.parents[2]))
     sys.exit(0)

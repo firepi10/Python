@@ -1,0 +1,5 @@
+# Installed to ~bayta/.bash_profile by the Bayta installer.
+# Console autologin on tty1 launches straight into the Wayland kiosk.
+if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    exec labwc
+fi

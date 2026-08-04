@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Bayta
+Description=Bayta boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/bayta
+ScriptFile=/usr/share/plymouth/themes/bayta/bayta.script

@@ -1,0 +1,17 @@
+// Bayta boot splash: logo centered on near-black, gentle pulse.
+
+Window.SetBackgroundTopColor(0.055, 0.055, 0.075);
+Window.SetBackgroundBottomColor(0.031, 0.031, 0.047);
+
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
+
+count = 0;
+fun refresh_callback() {
+    count++;
+    opacity = 0.8 + 0.2 * Math.Sin(count / 30);
+    logo.sprite.SetOpacity(opacity);
+}
+Plymouth.SetRefreshFunction(refresh_callback);

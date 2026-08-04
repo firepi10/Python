@@ -22,6 +22,10 @@ export function useSSE() {
     source.onmessage = (msg) => {
       try {
         const { topic } = JSON.parse(msg.data) as { topic: string };
+        if (topic === "reload") {
+          window.location.reload();
+          return;
+        }
         for (const key of TOPIC_KEYS[topic] ?? []) {
           queryClient.invalidateQueries({ queryKey: [key] });
         }

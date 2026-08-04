@@ -1,0 +1,16 @@
+# Installed to ~bayta/.config/labwc/autostart by the Bayta installer.
+
+# Apply the persisted rotation (written by the backend's Settings screen).
+if [ -f /var/lib/bayta/rotation ]; then
+    ROT="$(cat /var/lib/bayta/rotation)"
+    OUTPUT="$(wlr-randr 2>/dev/null | awk 'NR==1{print $1}')"
+    if [ -n "$OUTPUT" ] && [ -n "$ROT" ] && [ "$ROT" != "normal" ]; then
+        wlr-randr --output "$OUTPUT" --transform "$ROT" &
+    fi
+fi
+
+# Wake the panel on touch while the sleep schedule has it off.
+/opt/bayta/current/os/kiosk/wake-on-touch.sh &
+
+# Chromium kiosk, restarted forever if it ever dies.
+/opt/bayta/current/os/kiosk/kiosk-run.sh &

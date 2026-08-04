@@ -50,6 +50,50 @@ def register_jobs() -> None:
         replace_existing=True,
     )
     scheduler.add_job(
+        _sleep_tick, "interval", minutes=1, id="sleep_scheduler", replace_existing=True
+    )
+    scheduler.add_job(
+        _nightly_ui_reload,
+        "cron",
+        hour=3,
+        minute=30,
+        id="nightly_ui_reload",
+        replace_existing=True,
+    )
+
+
+def _sleep_tick() -> None:
+    from datetime import datetime
+
+    from app.core.events import bus
+    from app.db.session import session_factory
+    from app.services import display_service, settings_service
+    from app.services.sleep_service import should_be_asleep
+
+    db = session_factory()()
+    try:
+        cfg = settings_service.get(db, "sleep_schedule") or {}
+    finally:
+        db.close()
+    if not cfg.get("enabled"):
+        return
+    asleep = should_be_asleep(
+        datetime.now(), cfg.get("off", "21:30"), cfg.get("on", "06:30")
+    )
+    if asleep and display_service.is_display_on():
+        if display_service.display_off():
+            bus.publish("sleep_state")
+    elif not asleep and not display_service.is_display_on():
+        if display_service.display_on():
+            bus.publish("sleep_state")
+
+
+def _nightly_ui_reload() -> None:
+    """Chromium's memory creeps over weeks; a 3:30am reload resets it."""
+    from app.core.events import bus
+
+    bus.publish("reload")
+    scheduler.add_job(
         _refresh_occurrences_job,
         "cron",
         hour=3,
