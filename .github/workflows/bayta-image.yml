@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: bayta-image
+  cancel-in-progress: true
+
 jobs:
   image:
     runs-on: ubuntu-latest
@@ -40,6 +44,15 @@ jobs:
             /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           sudo docker system prune -af >/dev/null 2>&1 || true
           df -h /
+
+      # pi-gen cross-builds an arm64 rootfs inside Docker; the kernel must have
+      # qemu-aarch64 registered via binfmt_misc with the fix-binary flag
+      - name: Enable arm64 emulation (binfmt)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static binfmt-support
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          ls /proc/sys/fs/binfmt_misc/ || true
 
       - name: Assemble custom pi-gen stage
         run: |
