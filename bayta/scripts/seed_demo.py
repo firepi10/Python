@@ -13,6 +13,7 @@ from app.core.config import get_settings  # noqa: E402
 from app.db.migrate import upgrade_to_head  # noqa: E402
 from app.db.models import (  # noqa: E402
     Chore,
+    ChoreAssignee,
     ChoreCompletion,
     Countdown,
     Event,
@@ -24,6 +25,8 @@ from app.db.models import (  # noqa: E402
     Occurrence,
     PendingOp,
     Profile,
+    Reward,
+    RewardClaim,
 )
 from app.db.session import session_factory  # noqa: E402
 from app.services.calendar_service import create_local_event  # noqa: E402
@@ -44,7 +47,10 @@ def main() -> None:
         PendingOp,
         Event,
         Countdown,
+        RewardClaim,
+        Reward,
         ChoreCompletion,
+        ChoreAssignee,
         Chore,
         MealPlanEntry,
         MealIngredient,
@@ -58,9 +64,10 @@ def main() -> None:
 
     mom = Profile(name="Mom", color="pink", sort_order=0)
     dad = Profile(name="Dad", color="blue", sort_order=1)
-    zoe = Profile(name="Zoe", color="green", sort_order=2)
-    max_ = Profile(name="Max", color="orange", sort_order=3)
-    db.add_all([mom, dad, zoe, max_])
+    lainey = Profile(name="Lainey", color="purple", sort_order=2)
+    charlee = Profile(name="Charlee", color="green", sort_order=3)
+    sunnie = Profile(name="Sunnie", color="yellow", sort_order=4)
+    db.add_all([mom, dad, lainey, charlee, sunnie])
     db.commit()
 
     today = datetime.now().replace(minute=0, second=0, microsecond=0)
@@ -75,25 +82,27 @@ def main() -> None:
 
     events = [
         dict(summary="Soccer practice", dtstart=at(monday, 16), dtend=at(monday, 17, 30),
-             rrule="FREQ=WEEKLY;BYDAY=MO", profile_id=zoe.id, location="Riverside fields"),
+             rrule="FREQ=WEEKLY;BYDAY=MO", profile_id=lainey.id, location="Riverside fields"),
         dict(summary="Piano lesson", dtstart=at(wednesday, 15, 30), dtend=at(wednesday, 16, 15),
-             rrule="FREQ=WEEKLY;BYDAY=WE", profile_id=max_.id),
+             rrule="FREQ=WEEKLY;BYDAY=WE", profile_id=charlee.id),
         dict(summary="Trash & recycling out", dtstart=at(thursday, 19), dtend=at(thursday, 19, 15),
              rrule="FREQ=WEEKLY;BYDAY=TH", profile_id=dad.id),
         dict(summary="Yoga", dtstart=at(today + timedelta(days=1), 7),
              dtend=at(today + timedelta(days=1), 8), rrule="FREQ=WEEKLY", profile_id=mom.id),
-        dict(summary="Dentist — Max", dtstart=at(today + timedelta(days=2), 14),
-             dtend=at(today + timedelta(days=2), 15), profile_id=max_.id, location="Dr. Patel"),
+        dict(summary="Dentist — Charlee", dtstart=at(today + timedelta(days=2), 14),
+             dtend=at(today + timedelta(days=2), 15), profile_id=charlee.id, location="Dr. Patel"),
+        dict(summary="Toddler swim — Sunnie", dtstart=at(saturday, 9),
+             dtend=at(saturday, 9, 45), rrule="FREQ=WEEKLY;BYDAY=SA", profile_id=sunnie.id),
         dict(summary="Date night", dtstart=at(friday, 19), dtend=at(friday, 22),
              profile_id=mom.id, location="Lupa"),
         dict(summary="Grandma visits", dtstart=at(saturday, 0), dtend=at(saturday, 0),
              all_day=True),
         dict(summary="School bake sale", dtstart=at(today + timedelta(days=9), 0),
-             dtend=at(today + timedelta(days=9), 0), all_day=True, profile_id=zoe.id),
+             dtend=at(today + timedelta(days=9), 0), all_day=True, profile_id=lainey.id),
         dict(summary="Book club", dtstart=at(today + timedelta(days=12), 19),
              dtend=at(today + timedelta(days=12), 21), profile_id=mom.id),
-        dict(summary="Max's birthday 🎂", dtstart=at(today + timedelta(days=20), 0),
-             dtend=at(today + timedelta(days=20), 0), all_day=True, profile_id=max_.id),
+        dict(summary="Sunnie's birthday 🎂", dtstart=at(today + timedelta(days=20), 0),
+             dtend=at(today + timedelta(days=20), 0), all_day=True, profile_id=sunnie.id),
     ]
     for spec in events:
         create_local_event(db, timezone=get_settings().timezone, **spec)
@@ -129,20 +138,44 @@ def main() -> None:
         if d >= today.date() - timedelta(days=7):
             db.add(MealPlanEntry(date=d, slot=slot, meal_id=meals[key].id))
 
-    # chores
-    chores = [
-        Chore(title="Make your bed", icon="🛏️", profile_id=zoe.id, rrule="FREQ=DAILY", points=1),
-        Chore(title="Feed the dog", icon="🐕", profile_id=max_.id, rrule="FREQ=DAILY", points=1),
-        Chore(title="Empty dishwasher", icon="🍽️", profile_id=zoe.id,
-              rrule="FREQ=WEEKLY;BYDAY=MO,WE,FR", points=2),
-        Chore(title="Take out trash", icon="🗑️", profile_id=max_.id,
-              rrule="FREQ=WEEKLY;BYDAY=TH", points=3),
-        Chore(title="Water plants", icon="🪴", profile_id=mom.id,
-              rrule="FREQ=WEEKLY;BYDAY=SA", points=1),
-    ]
-    db.add_all(chores)
-    db.flush()
-    db.add(ChoreCompletion(chore_id=chores[0].id, due_date=today.date(), points_awarded=1))
+    # chores — "Make your bed" and "Empty dishwasher" are SHARED between the
+    # older girls: each sees it in her own column and checks off her own copy
+    def chore(title, icon, rrule, points, *people):
+        c = Chore(title=title, icon=icon, rrule=rrule, points=points)
+        db.add(c)
+        db.flush()
+        for p in people:
+            db.add(ChoreAssignee(chore_id=c.id, profile_id=p.id))
+        return c
+
+    beds = chore("Make your bed", "🛏️", "FREQ=DAILY", 1, lainey, charlee)
+    chore("Feed the dog", "🐕", "FREQ=DAILY", 1, charlee)
+    chore("Empty dishwasher", "🍽️", "FREQ=WEEKLY;BYDAY=MO,WE,FR", 2, lainey, charlee)
+    chore("Put toys in the bin", "🧸", "FREQ=DAILY", 1, sunnie)
+    chore("Take out trash", "🗑️", "FREQ=WEEKLY;BYDAY=TH", 3, dad)
+    chore("Water plants", "🪴", "FREQ=WEEKLY;BYDAY=SA", 1, mom)
+    # Lainey already made her bed today; Charlee hasn't
+    db.add(
+        ChoreCompletion(
+            chore_id=beds.id, due_date=today.date(), profile_id=lainey.id, points_awarded=1
+        )
+    )
+    # star history so the reward balances have life in them
+    for days_ago in range(1, 13):
+        d = (today - timedelta(days=days_ago)).date()
+        db.add(ChoreCompletion(chore_id=beds.id, due_date=d, profile_id=lainey.id,
+                               points_awarded=1))
+        if days_ago % 2 == 0:
+            db.add(ChoreCompletion(chore_id=beds.id, due_date=d, profile_id=charlee.id,
+                                   points_awarded=1))
+
+    # reward store
+    db.add_all([
+        Reward(title="Movie night pick", icon="🎬", cost_points=10),
+        Reward(title="Stay up 30 min late", icon="🌙", cost_points=15),
+        Reward(title="Ice cream trip", icon="🍦", cost_points=25),
+        Reward(title="New toy", icon="🧸", cost_points=50),
+    ])
 
     # lists
     grocery = ListModel(name="Groceries", kind="grocery", icon="🛒", sort_order=0)

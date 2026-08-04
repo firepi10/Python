@@ -6,7 +6,7 @@ const TOPIC_KEYS: Record<string, string[]> = {
   profiles: ["profiles"],
   photos: ["photos", "slideshow"],
   meals: ["meals", "mealplan"],
-  chores: ["chores"],
+  chores: ["chores", "rewards"],
   lists: ["lists"],
   countdowns: ["countdowns"],
   weather: ["weather"],

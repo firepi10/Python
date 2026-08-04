@@ -74,13 +74,13 @@ def test_chores_due_and_stars(client):
     zoe = client.post("/api/profiles", json={"name": "Zoe", "color": "green"}).json()["id"]
 
     daily = client.post(
-        "/api/chores", json={"title": "Feed the dog", "profile_id": zoe, "points": 2}
+        "/api/chores", json={"title": "Feed the dog", "profile_ids": [zoe], "points": 2}
     ).json()["id"]
     client.post(
         "/api/chores",
         json={
             "title": "Take out trash",
-            "profile_id": zoe,
+            "profile_ids": [zoe],
             "rrule": "FREQ=WEEKLY;BYDAY=TH",
             "points": 5,
         },
@@ -98,12 +98,16 @@ def test_chores_due_and_stars(client):
     thursday = client.get("/api/chores", params={"day": "2026-08-13"}).json()
     assert {c["title"] for c in thursday} == {"Feed the dog", "Take out trash"}
 
-    # complete + toggle back + complete again
-    r = client.post(f"/api/chores/{daily}/complete", json={"date": "2026-08-10"})
+    # complete + toggle back + complete again (per person now)
+    r = client.post(
+        f"/api/chores/{daily}/complete", json={"date": "2026-08-10", "profile_id": zoe}
+    )
     assert r.json()["completed"] is True
-    r = client.post(f"/api/chores/{daily}/complete", json={"date": "2026-08-10"})
+    r = client.post(
+        f"/api/chores/{daily}/complete", json={"date": "2026-08-10", "profile_id": zoe}
+    )
     assert r.json()["completed"] is False
-    client.post(f"/api/chores/{daily}/complete", json={"date": "2026-08-10"})
+    client.post(f"/api/chores/{daily}/complete", json={"date": "2026-08-10", "profile_id": zoe})
 
     stars = client.get("/api/chores/stars", params={"since": "2026-08-09"}).json()
     assert stars == [{"profile_id": zoe, "points": 2}]

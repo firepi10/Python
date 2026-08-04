@@ -222,23 +222,71 @@ class Chore(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(160))
     icon: Mapped[str | None] = mapped_column(String(40))
+    # Deprecated single-person tag; assignment now lives in chore_assignees
+    # (kept one version for updater rollback compatibility).
     profile_id: Mapped[int | None] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
     rrule: Mapped[str] = mapped_column(String(255), default="FREQ=DAILY")
     points: Mapped[int] = mapped_column(Integer, default=1)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    profile: Mapped[Profile | None] = relationship()
+    assignees: Mapped[list["ChoreAssignee"]] = relationship(
+        back_populates="chore", cascade="all, delete-orphan"
+    )
+
+
+class ChoreAssignee(Base):
+    """A chore can belong to several people (e.g. both kids); each person
+    completes their own copy for the day."""
+
+    __tablename__ = "chore_assignees"
+    __table_args__ = (UniqueConstraint("chore_id", "profile_id", name="uq_chore_assignees"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chore_id: Mapped[int] = mapped_column(ForeignKey("chores.id", ondelete="CASCADE"))
+    profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+
+    chore: Mapped[Chore] = relationship(back_populates="assignees")
 
 
 class ChoreCompletion(Base):
     __tablename__ = "chore_completions"
-    __table_args__ = (UniqueConstraint("chore_id", "due_date", name="uq_chore_completions"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "chore_id", "due_date", "profile_id", name="uq_chore_completions_person"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     chore_id: Mapped[int] = mapped_column(ForeignKey("chores.id", ondelete="CASCADE"))
     due_date: Mapped[date] = mapped_column(Date, index=True)
+    # who checked it off — NULL only for legacy/unassigned chores
+    profile_id: Mapped[int | None] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     points_awarded: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class Reward(Base):
+    """A prize parents define; kids spend earned chore stars on it."""
+
+    __tablename__ = "rewards"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(160))
+    icon: Mapped[str | None] = mapped_column(String(40))
+    cost_points: Mapped[int] = mapped_column(Integer, default=10)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class RewardClaim(Base):
+    __tablename__ = "reward_claims"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reward_id: Mapped[int] = mapped_column(ForeignKey("rewards.id", ondelete="CASCADE"))
+    profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    points_spent: Mapped[int] = mapped_column(Integer)
+    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    reward: Mapped[Reward] = relationship()
 
 
 class ListModel(Base):

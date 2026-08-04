@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { format, startOfWeek } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ClipboardCheck, Plus, Star } from "lucide-react";
+import { Check, ClipboardCheck, Gift, Plus, Star, Users } from "lucide-react";
 import { api, profileColorVar, type ProfileDTO } from "../../api/client";
 import { Avatar } from "../../components/Avatar";
 import { EmptyState } from "../../components/EmptyState";
 import { Sheet } from "../../components/Sheet";
 import { TouchButton } from "../../components/TouchButton";
+import { fetchRewards, RewardsSheet } from "./RewardsSheet";
 
 interface ChoreDTO {
   id: number;
@@ -15,6 +16,9 @@ interface ChoreDTO {
   profile_id: number | null;
   points: number;
   completed: boolean;
+  /** true when the chore is shared: it shows in every assignee's column and
+   *  each person checks off their own copy */
+  shared: boolean;
 }
 
 const WEEKDAYS = [
@@ -36,6 +40,7 @@ async function getJSON<T>(path: string): Promise<T> {
 export function ChoresView() {
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [rewardsOpen, setRewardsOpen] = useState(false);
   const today = format(new Date(), "yyyy-MM-dd");
   const weekStart = format(startOfWeek(new Date()), "yyyy-MM-dd");
 
@@ -48,13 +53,15 @@ export function ChoresView() {
     queryKey: ["chores", "stars", weekStart],
     queryFn: () => getJSON<{ profile_id: number; points: number }[]>(`/api/chores/stars?since=${weekStart}`),
   });
+  const { data: rewardsData } = useQuery({ queryKey: ["rewards"], queryFn: fetchRewards });
+  const balances = new Map((rewardsData?.balances ?? []).map((b) => [b.profile_id, b.balance]));
 
   const toggle = useMutation({
-    mutationFn: (choreId: number) =>
-      fetch(`/api/chores/${choreId}/complete`, {
+    mutationFn: (vars: { choreId: number; profileId: number | null }) =>
+      fetch(`/api/chores/${vars.choreId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: today }),
+        body: JSON.stringify({ date: today, profile_id: vars.profileId }),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["chores"] }),
   });
@@ -84,6 +91,9 @@ export function ChoresView() {
             {format(new Date(), "EEEE")}
           </span>
         </h1>
+        <TouchButton variant="secondary" size="sm" onClick={() => setRewardsOpen(true)}>
+          <Gift size={15} style={{ display: "inline", verticalAlign: -2 }} /> Rewards
+        </TouchButton>
         <TouchButton variant="primary" size="sm" onClick={() => setAddOpen(true)}>
           <Plus size={16} style={{ display: "inline", verticalAlign: -3 }} /> Add chore
         </TouchButton>
@@ -124,16 +134,19 @@ export function ChoresView() {
                   {profile && (
                     <div style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}>
                       <Star size={13} fill="var(--profile-yellow)" color="var(--profile-yellow)" />
-                      {starsFor(profile.id)} this week
+                      <b>{balances.get(profile.id) ?? 0}</b>
+                      <span style={{ color: "var(--text-tertiary)" }}>
+                        · {starsFor(profile.id)} this week
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
               {list.map((chore) => (
                 <button
-                  key={chore.id}
+                  key={`${chore.id}-${chore.profile_id ?? "all"}`}
                   className="touch-btn"
-                  onClick={() => toggle.mutate(chore.id)}
+                  onClick={() => toggle.mutate({ choreId: chore.id, profileId: chore.profile_id })}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -175,10 +188,16 @@ export function ChoresView() {
                       fontWeight: 600,
                       textDecoration: chore.completed ? "line-through" : "none",
                       opacity: chore.completed ? 0.55 : 1,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
                     }}
                   >
                     {chore.icon && `${chore.icon} `}
                     {chore.title}
+                    {chore.shared && (
+                      <Users size={14} color="var(--text-tertiary)" aria-label="Shared chore" />
+                    )}
                   </span>
                   {chore.points > 0 && (
                     <span
@@ -203,6 +222,7 @@ export function ChoresView() {
       </div>
 
       <AddChoreSheet open={addOpen} onClose={() => setAddOpen(false)} profiles={profiles ?? []} />
+      <RewardsSheet open={rewardsOpen} onClose={() => setRewardsOpen(false)} profiles={profiles ?? []} />
     </div>
   );
 }
@@ -218,7 +238,7 @@ function AddChoreSheet({
 }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
-  const [profileId, setProfileId] = useState<number | null>(null);
+  const [profileIds, setProfileIds] = useState<number[]>([]);
   const [mode, setMode] = useState<"daily" | "days">("daily");
   const [days, setDays] = useState<string[]>(["MO"]);
   const [points, setPoints] = useState(1);
@@ -230,7 +250,7 @@ function AddChoreSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          profile_id: profileId,
+          profile_ids: profileIds,
           points,
           rrule: mode === "daily" ? "FREQ=DAILY" : `FREQ=WEEKLY;BYDAY=${days.join(",")}`,
         }),
@@ -238,6 +258,7 @@ function AddChoreSheet({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chores"] });
       setTitle("");
+      setProfileIds([]);
       onClose();
     },
   });
@@ -259,17 +280,30 @@ function AddChoreSheet({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {profiles.map((p) => (
-            <TouchButton
-              key={p.id}
-              variant={profileId === p.id ? "primary" : "secondary"}
-              size="sm"
-              onClick={() => setProfileId(profileId === p.id ? null : p.id)}
-            >
-              {p.name}
-            </TouchButton>
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {profiles.map((p) => (
+              <TouchButton
+                key={p.id}
+                variant={profileIds.includes(p.id) ? "primary" : "secondary"}
+                size="sm"
+                onClick={() =>
+                  setProfileIds((ids) =>
+                    ids.includes(p.id) ? ids.filter((x) => x !== p.id) : [...ids, p.id],
+                  )
+                }
+              >
+                {p.name}
+              </TouchButton>
+            ))}
+          </div>
+          <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
+            {profileIds.length > 1
+              ? "Shared chore — it shows up for each of them, and each checks off their own."
+              : profileIds.length === 0
+                ? "No one picked — it becomes a family chore with a single checkbox."
+                : "Pick more than one person to make it a shared chore."}
+          </span>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <TouchButton

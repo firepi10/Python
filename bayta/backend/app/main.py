@@ -18,6 +18,7 @@ from app.api import (
     meals,
     photos,
     profiles,
+    rewards,
     stream,
     weather,
 )
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
         meals.router,
         photos.router,
         profiles.router,
+        rewards.router,
         settings_api.router,
         countdowns.router,
         weather.router,
