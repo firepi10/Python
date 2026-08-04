@@ -7,7 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import countdowns, health, profiles, stream, weather
+from app.api import calendar, countdowns, health, profiles, stream, weather
 from app.api import settings as settings_api
 from app.core import scheduler
 from app.core.config import get_settings
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
 
     for router in (
         health.router,
+        calendar.router,
         profiles.router,
         settings_api.router,
         countdowns.router,

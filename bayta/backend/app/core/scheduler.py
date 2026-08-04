@@ -12,11 +12,31 @@ scheduler = AsyncIOScheduler(
 )
 
 
+def _refresh_occurrences_job() -> None:
+    from app.db.session import session_factory
+    from app.services.calendar_service import refresh_all_occurrences
+
+    db = session_factory()()
+    try:
+        count = refresh_all_occurrences(db)
+        logger.info("occurrence window refreshed for %d events", count)
+    finally:
+        db.close()
+
+
 def register_jobs() -> None:
     from app.sync.weather_sync import sync_weather
 
     scheduler.add_job(
         sync_weather, "interval", minutes=15, id="weather_sync", replace_existing=True
+    )
+    scheduler.add_job(
+        _refresh_occurrences_job,
+        "cron",
+        hour=3,
+        minute=0,
+        id="occurrence_refresh",
+        replace_existing=True,
     )
 
 

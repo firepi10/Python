@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     LargeBinary,
+    MetaData,
     String,
     Text,
     UniqueConstraint,
@@ -20,7 +21,16 @@ def utcnow() -> datetime:
 
 
 class Base(DeclarativeBase):
-    pass
+    # Deterministic constraint names — required for SQLite batch migrations.
+    metadata = MetaData(
+        naming_convention={
+            "ix": "ix_%(column_0_label)s",
+            "uq": "uq_%(table_name)s_%(column_0_name)s",
+            "ck": "ck_%(table_name)s_%(constraint_name)s",
+            "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+            "pk": "pk_%(table_name)s",
+        }
+    )
 
 
 class Profile(Base):
@@ -94,6 +104,9 @@ class Event(Base):
     last_modified: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     origin: Mapped[str] = mapped_column(String(10), default="local")
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Direct person tag for locally created events; synced events inherit the
+    # person from their calendar's profile mapping instead.
+    profile_id: Mapped[int | None] = mapped_column(ForeignKey("profiles.id", ondelete="SET NULL"))
 
     calendar: Mapped[Calendar | None] = relationship(back_populates="events")
     occurrences: Mapped[list["Occurrence"]] = relationship(

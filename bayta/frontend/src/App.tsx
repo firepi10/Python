@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { CalendarDays, ClipboardCheck, Images, ListTodo, Settings, UtensilsCrossed } from "lucide-react";
+import { ClipboardCheck, Images, ListTodo, Settings, UtensilsCrossed } from "lucide-react";
 import { EmptyState } from "./components/EmptyState";
 import { ToastProvider } from "./components/Toast";
+import { useSSE } from "./hooks/useSSE";
+import { CalendarView } from "./views/calendar/CalendarView";
 import { Gallery } from "./views/Gallery";
 import { KioskShell } from "./views/KioskShell";
 
@@ -13,6 +15,7 @@ function applyTheme() {
 }
 
 export default function App() {
+  useSSE();
   useEffect(() => {
     applyTheme();
     const id = setInterval(applyTheme, 60_000);
@@ -24,10 +27,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<KioskShell />}>
           <Route index element={<Navigate to="/calendar" replace />} />
-          <Route
-            path="calendar"
-            element={<EmptyState icon={CalendarDays} title="Calendar" hint="Arrives in M3 — month, week and day views with per-person colors." />}
-          />
+          <Route path="calendar" element={<CalendarView />} />
           <Route
             path="meals"
             element={<EmptyState icon={UtensilsCrossed} title="Meals" hint="Weekly planner and favorites arrive in M6." />}
