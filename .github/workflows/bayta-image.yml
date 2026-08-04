@@ -4,6 +4,12 @@ on:
   workflow_dispatch:
   push:
     tags: ["bayta-v*"]
+    # building the image takes ~an hour, so branch pushes only trigger it
+    # when the image recipe itself changes
+    branches: ["claude/skylight-pi-os-build-uel868"]
+    paths:
+      - "bayta/os/image/**"
+      - ".github/workflows/bayta-image.yml"
 
 permissions:
   contents: write
