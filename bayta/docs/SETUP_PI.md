@@ -3,7 +3,24 @@
 What you need: the Raspberry Pi 4B, the microSD card, a computer with an SD reader,
 and your Wi-Fi password. Total hands-on time: about 15 minutes plus install time.
 
-## 1. Flash the OS
+## Option A (easiest): flash the ready-made Bayta image
+
+1. Download the latest `bayta-….img.xz` — from the **bayta-image** workflow run's
+   artifacts on GitHub (Actions tab), or from a GitHub Release when one is tagged.
+2. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/), click
+   **Choose OS → Use custom**, and pick the downloaded `.img.xz`.
+3. In Imager's settings screen set your **Wi-Fi network + country** (keep the
+   hostname `bayta`). Default login if you skip it: user `pi`, password `bayta`.
+4. Write the card, insert, power on. First boot takes a couple of minutes, then
+   the touchscreen boots straight into Bayta. Finish with the
+   [first-boot checklist](#3-first-boot-checklist) below, plus
+   `sudo tailscale up && sudo tailscale serve --bg 80` for remote access.
+
+The image self-updates daily from this repository, same as a scripted install.
+
+## Option B: flash stock Raspberry Pi OS + run the installer
+
+### 1. Flash the OS
 
 1. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on your computer.
 2. Choose **Raspberry Pi OS Lite (64-bit)** (under "Raspberry Pi OS (other)").

@@ -21,6 +21,11 @@ NEW_HOSTNAME="bayta"
 WITH_TAILSCALE=1
 WITH_KIOSK=1
 DRY_RUN=0
+# BAYTA_IMAGE_BUILD=1: running inside a pi-gen chroot while baking the SD-card
+# image — no live systemd, no network hostname tools, source pre-copied to
+# BAYTA_SRC_DIR instead of git-cloned. First-boot behavior is identical.
+IMAGE_BUILD="${BAYTA_IMAGE_BUILD:-0}"
+SRC_DIR="${BAYTA_SRC_DIR:-}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -52,7 +57,7 @@ require_root() {
 }
 
 check_platform() {
-    if [ "$DRY_RUN" = 1 ]; then return; fi
+    if [ "$DRY_RUN" = 1 ] || [ "$IMAGE_BUILD" = 1 ]; then return; fi
     if [ "$(uname -m)" != "aarch64" ]; then
         echo "expected 64-bit Raspberry Pi OS (aarch64), found $(uname -m)" >&2
         exit 1
@@ -102,14 +107,19 @@ setup_dirs() {
 }
 
 fetch_source() {
-    log "fetching Bayta ($BRANCH)"
-    if [ -z "$REPO_URL" ]; then
-        echo "--repo is required" >&2
-        exit 2
-    fi
     local dest="/opt/bayta/releases/git-$(date +%Y%m%d%H%M%S)"
-    run git clone --depth 1 --branch "$BRANCH" "$REPO_URL" /tmp/bayta-src
-    run bash -c "mv /tmp/bayta-src/bayta '$dest' && rm -rf /tmp/bayta-src"
+    if [ -n "$SRC_DIR" ]; then
+        log "installing Bayta from $SRC_DIR"
+        run bash -c "cp -a '$SRC_DIR' '$dest'"
+    else
+        log "fetching Bayta ($BRANCH)"
+        if [ -z "$REPO_URL" ]; then
+            echo "--repo is required" >&2
+            exit 2
+        fi
+        run git clone --depth 1 --branch "$BRANCH" "$REPO_URL" /tmp/bayta-src
+        run bash -c "mv /tmp/bayta-src/bayta '$dest' && rm -rf /tmp/bayta-src"
+    fi
     run chown -R bayta:bayta "$dest"
     run ln -sfn "$dest" /opt/bayta/current
 }
@@ -146,8 +156,13 @@ install_services() {
     run cp /opt/bayta/current/os/config/avahi-bayta.service /etc/avahi/services/bayta.service
     # allow the backend's "Update now" button to start the update unit
     run bash -c 'echo "bayta ALL=(root) NOPASSWD: /usr/bin/systemctl start bayta-update.service" > /etc/sudoers.d/bayta && chmod 440 /etc/sudoers.d/bayta'
-    run systemctl daemon-reload
-    run systemctl enable --now bayta-backend.service bayta-update.timer avahi-daemon
+    if [ "$IMAGE_BUILD" = 1 ]; then
+        # chroot: no running systemd — enable only; services start on first boot
+        run systemctl enable bayta-backend.service bayta-update.timer avahi-daemon
+    else
+        run systemctl daemon-reload
+        run systemctl enable --now bayta-backend.service bayta-update.timer avahi-daemon
+    fi
 }
 
 setup_kiosk() {
@@ -188,7 +203,11 @@ setup_boot_polish() {
 
 setup_hostname() {
     log "hostname -> $NEW_HOSTNAME (http://$NEW_HOSTNAME.local)"
-    run hostnamectl set-hostname "$NEW_HOSTNAME"
+    if [ "$IMAGE_BUILD" = 1 ]; then
+        run bash -c "echo '$NEW_HOSTNAME' > /etc/hostname"
+    else
+        run hostnamectl set-hostname "$NEW_HOSTNAME"
+    fi
     run sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/" /etc/hosts || true
 }
 
@@ -203,7 +222,7 @@ setup_tailscale() {
 migrate_and_check() {
     log "running database migrations"
     run sudo -u bayta bash -c "cd /opt/bayta/current/backend && BAYTA_DATA_DIR=/var/lib/bayta /opt/bayta/current/venv/bin/alembic upgrade head"
-    if [ "$DRY_RUN" = 0 ]; then
+    if [ "$DRY_RUN" = 0 ] && [ "$IMAGE_BUILD" = 0 ]; then
         for _ in $(seq 1 30); do
             if curl -sf http://localhost/api/health >/dev/null 2>&1; then
                 log "backend healthy"

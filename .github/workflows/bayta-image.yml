@@ -1,0 +1,85 @@
+name: bayta-image
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["bayta-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: bayta/frontend/package-lock.json
+
+      - name: Build frontend (so the image never needs Node)
+        working-directory: bayta/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Assemble custom pi-gen stage
+        run: |
+          cp -a bayta/os/image/stage-bayta ./stage-bayta
+          mkdir -p stage-bayta/00-install-bayta/files
+          rsync -a \
+            --exclude node_modules \
+            --exclude .venv \
+            --exclude var \
+            --exclude artifacts \
+            --exclude dist-demo \
+            bayta/ stage-bayta/00-install-bayta/files/bayta/
+          chmod +x stage-bayta/prerun.sh stage-bayta/00-install-bayta/*.sh
+          chmod +x stage-bayta/00-install-bayta/files/bayta/os/install.sh
+
+      - name: Build image with pi-gen
+        id: build
+        uses: usimd/pi-gen-action@v1
+        with:
+          image-name: bayta
+          pi-gen-version: arm64
+          release: bookworm
+          stage-list: stage0 stage1 stage2 ./stage-bayta
+          compression: xz
+          compression-level: 6
+          hostname: bayta
+          username: pi
+          password: bayta
+          disable-first-boot-user-rename: 1
+          enable-ssh: 1
+          enable-cloud-init: 0
+          locale: en_US.UTF-8
+          keyboard-keymap: us
+          keyboard-layout: English (US)
+          timezone: America/New_York
+          increase-runner-disk-size: true
+          verbose-output: true
+
+      - name: Checksum
+        run: |
+          sha256sum "${{ steps.build.outputs.image-path }}" | tee bayta-image.sha256
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bayta-sd-card-image
+          path: |
+            ${{ steps.build.outputs.image-path }}
+            bayta-image.sha256
+          retention-days: 90
+
+      - name: Attach to release (tag builds)
+        if: startsWith(github.ref, 'refs/tags/bayta-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.build.outputs.image-path }}
+            bayta-image.sha256

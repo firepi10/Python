@@ -40,6 +40,28 @@ export default function App() {
 
   return (
     <ToastProvider>
+      {import.meta.env.VITE_DEMO === "1" && (
+        <div
+          style={{
+            position: "fixed",
+            top: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 300,
+            background: "var(--accent)",
+            color: "#fff",
+            borderRadius: 999,
+            padding: "4px 14px",
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            pointerEvents: "none",
+            opacity: 0.92,
+          }}
+        >
+          BAYTA DEMO · tap around — resets on reload
+        </div>
+      )}
       <Routes>
         <Route path="/" element={<KioskShell />}>
           <Route index element={<Navigate to="/calendar" replace />} />
