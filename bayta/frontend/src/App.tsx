@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "./api/client";
 import { ToastProvider } from "./components/Toast";
 import { useSSE } from "./hooks/useSSE";
 import { CalendarView } from "./views/calendar/CalendarView";
@@ -12,19 +14,29 @@ import { PhotosView } from "./views/photos/PhotosView";
 import { Screensaver } from "./views/screensaver/Screensaver";
 import { SettingsView } from "./views/settings/SettingsView";
 
-function applyTheme() {
-  const hour = new Date().getHours();
-  const dark = hour >= 19 || hour < 7;
+function applyTheme(mode: string) {
+  let dark: boolean;
+  if (mode === "light") dark = false;
+  else if (mode === "dark") dark = true;
+  else {
+    const hour = new Date().getHours();
+    dark = hour >= 19 || hour < 7;
+  }
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
 
 export default function App() {
   useSSE();
+  const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: api.settings });
+  const theme = (settings?.theme as string | undefined) ?? "auto";
+  const reducedGlass = Boolean(settings?.reduced_glass);
+
   useEffect(() => {
-    applyTheme();
-    const id = setInterval(applyTheme, 60_000);
+    applyTheme(theme);
+    document.documentElement.dataset.glass = reducedGlass ? "reduced" : "full";
+    const id = setInterval(() => applyTheme(theme), 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [theme, reducedGlass]);
 
   return (
     <ToastProvider>

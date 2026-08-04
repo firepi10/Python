@@ -11,6 +11,7 @@ import {
 } from "../../api/client";
 import { Avatar } from "../../components/Avatar";
 import { GlassCard } from "../../components/GlassCard";
+import { SegmentedControl } from "../../components/SegmentedControl";
 import { Sheet } from "../../components/Sheet";
 import { TouchButton } from "../../components/TouchButton";
 import { useToast } from "../../components/Toast";
@@ -393,6 +394,160 @@ function AccountsSection() {
   );
 }
 
+// ------------------------------------------------------------ display/sleep
+
+interface SleepSchedule {
+  enabled: boolean;
+  off: string;
+  on: string;
+}
+
+interface ScreensaverCfg {
+  enabled: boolean;
+  interval_s: number;
+  ken_burns: boolean;
+}
+
+interface WeatherCfg {
+  lat: number;
+  lon: number;
+  unit: string;
+  label: string;
+}
+
+function Row({ label: rowLabel, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 44 }}>
+      <span style={{ flex: 1, fontWeight: 600, fontSize: 15 }}>{rowLabel}</span>
+      {children}
+    </div>
+  );
+}
+
+function DisplaySection() {
+  const queryClient = useQueryClient();
+  const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: api.settings });
+
+  const put = useMutation({
+    mutationFn: (vars: { key: string; value: unknown }) => api.putSetting(vars.key, vars.value),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
+  });
+
+  if (!settings) return null;
+  const sleep = settings.sleep_schedule as SleepSchedule;
+  const saver = settings.screensaver as ScreensaverCfg;
+  const weather = settings.weather as WeatherCfg;
+  const theme = settings.theme as string;
+  const idle = settings.idle_timeout_s as number;
+
+  const smallField: React.CSSProperties = { ...field, width: 120, padding: "8px 10px", fontSize: 14 };
+
+  return (
+    <GlassCard>
+      <SectionTitle>Display & sleep</SectionTitle>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <Row label="Appearance">
+          <div style={{ width: 260 }}>
+            <SegmentedControl
+              options={[
+                { value: "auto", label: "Auto" },
+                { value: "light", label: "Light" },
+                { value: "dark", label: "Dark" },
+              ]}
+              value={theme as "auto" | "light" | "dark"}
+              onChange={(v) => put.mutate({ key: "theme", value: v })}
+            />
+          </div>
+        </Row>
+        <Row label="Screen off at night">
+          <TouchButton
+            size="sm"
+            variant={sleep.enabled ? "primary" : "secondary"}
+            onClick={() => put.mutate({ key: "sleep_schedule", value: { ...sleep, enabled: !sleep.enabled } })}
+          >
+            {sleep.enabled ? "On" : "Off"}
+          </TouchButton>
+          <input
+            type="time"
+            style={smallField}
+            value={sleep.off}
+            onChange={(e) => put.mutate({ key: "sleep_schedule", value: { ...sleep, off: e.target.value } })}
+          />
+          <span style={{ color: "var(--text-tertiary)" }}>to</span>
+          <input
+            type="time"
+            style={smallField}
+            value={sleep.on}
+            onChange={(e) => put.mutate({ key: "sleep_schedule", value: { ...sleep, on: e.target.value } })}
+          />
+        </Row>
+        <Row label="Photos take over after">
+          <select
+            style={smallField}
+            value={idle}
+            onChange={(e) => put.mutate({ key: "idle_timeout_s", value: Number(e.target.value) })}
+          >
+            <option value={60}>1 minute</option>
+            <option value={120}>2 minutes</option>
+            <option value={300}>5 minutes</option>
+            <option value={600}>10 minutes</option>
+            <option value={900}>15 minutes</option>
+          </select>
+        </Row>
+        <Row label="Each photo shows for">
+          <select
+            style={smallField}
+            value={saver.interval_s}
+            onChange={(e) =>
+              put.mutate({ key: "screensaver", value: { ...saver, interval_s: Number(e.target.value) } })
+            }
+          >
+            <option value={8}>8 seconds</option>
+            <option value={12}>12 seconds</option>
+            <option value={20}>20 seconds</option>
+            <option value={30}>30 seconds</option>
+          </select>
+        </Row>
+        <Row label="Reduced glass (faster on Pi)">
+          <TouchButton
+            size="sm"
+            variant={settings.reduced_glass ? "primary" : "secondary"}
+            onClick={() => put.mutate({ key: "reduced_glass", value: !settings.reduced_glass })}
+          >
+            {settings.reduced_glass ? "On" : "Off"}
+          </TouchButton>
+        </Row>
+        <Row label="Weather location">
+          <input
+            style={{ ...smallField, width: 90 }}
+            defaultValue={weather.lat}
+            onBlur={(e) =>
+              put.mutate({ key: "weather", value: { ...weather, lat: Number(e.target.value) || 0 } })
+            }
+          />
+          <input
+            style={{ ...smallField, width: 90 }}
+            defaultValue={weather.lon}
+            onBlur={(e) =>
+              put.mutate({ key: "weather", value: { ...weather, lon: Number(e.target.value) || 0 } })
+            }
+          />
+          <div style={{ width: 130 }}>
+            <SegmentedControl
+              options={[
+                { value: "fahrenheit", label: "°F" },
+                { value: "celsius", label: "°C" },
+              ]}
+              value={weather.unit as "fahrenheit" | "celsius"}
+              onChange={(v) => put.mutate({ key: "weather", value: { ...weather, unit: v } })}
+            />
+          </div>
+        </Row>
+      </div>
+    </GlassCard>
+  );
+}
+
 // -------------------------------------------------------------------- view
 
 export function SettingsView() {
@@ -411,12 +566,15 @@ export function SettingsView() {
     >
       <ProfilesSection />
       <AccountsSection />
+      <DisplaySection />
       <GlassCard>
         <SectionTitle>
-          <UserRound size={14} style={{ display: "inline", verticalAlign: -2 }} /> More settings
+          <UserRound size={14} style={{ display: "inline", verticalAlign: -2 }} /> Phone app
         </SectionTitle>
-        <div style={{ color: "var(--text-secondary)", fontSize: 14 }}>
-          Sleep schedule, screensaver and device controls arrive with the photos milestone.
+        <div style={{ color: "var(--text-secondary)", fontSize: 14, lineHeight: 1.6 }}>
+          On your iPhone, open this address in Safari and tap <b>Share → Add to Home Screen</b>.
+          At home use <b>http://bayta.local</b>; from anywhere, install the Tailscale app and use
+          your tailnet address — one icon works in both places if you add it from the tailnet URL.
         </div>
       </GlassCard>
     </div>
