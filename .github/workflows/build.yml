@@ -2,6 +2,14 @@ name: "build"
 
 on:
   pull_request:
+    # The bayta/ app has its own CI (bayta-ci.yml) and virtualenv; skip the
+    # algorithm-collection build when only Bayta or repo plumbing changed.
+    paths-ignore:
+      - "bayta/**"
+      - "conftest.py"
+      - "scripts/build_directory_md.py"
+      - ".github/workflows/**"
+      - "DIRECTORY.md"
   schedule:
     - cron: "0 0 * * *" # Run everyday
 
