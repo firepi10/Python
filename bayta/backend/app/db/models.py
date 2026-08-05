@@ -101,6 +101,8 @@ class Event(Base):
     dtend_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     all_day: Mapped[bool] = mapped_column(Boolean, default=False)
     is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
+    # denormalized RRULE text (e.g. "FREQ=YEARLY") so the UI can round-trip it
+    rrule: Mapped[str | None] = mapped_column(String(255))
     last_modified: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     origin: Mapped[str] = mapped_column(String(10), default="local")
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)

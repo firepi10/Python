@@ -6,9 +6,11 @@ from datetime import UTC, date, datetime, timedelta
 import recurring_ical_events
 from icalendar import Calendar as ICalendar
 
-# Expansion window relative to "now": UI never needs more than about a year out.
+# Expansion window relative to "now". Past 365 days so a yearly event (a
+# birthday) always caches at least its next two occurrences; ranges beyond this
+# are expanded on demand by calendar_service.
 WINDOW_PAST_DAYS = 35
-WINDOW_FUTURE_DAYS = 400
+WINDOW_FUTURE_DAYS = 800
 
 
 def default_window(now: datetime | None = None) -> tuple[datetime, datetime]:

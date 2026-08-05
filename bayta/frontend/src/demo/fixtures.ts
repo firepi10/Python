@@ -31,6 +31,7 @@ export interface OccRecord {
   end: string;
   all_day: boolean;
   is_recurring: boolean;
+  rrule: string | null;
   profile_id: number | null;
   color: string;
   profile_name: string | null;
@@ -114,6 +115,7 @@ function occ(
     end: end.toISOString(),
     all_day: spec.allDay ?? false,
     is_recurring: spec.recurring ?? false,
+    rrule: spec.recurring ? "FREQ=WEEKLY" : null,
     profile_id: spec.profile ?? null,
     color,
     profile_name: name,

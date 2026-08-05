@@ -104,6 +104,9 @@ def parse_event_ics(ics_text: str) -> dict:
         start_utc = to_utc(dtstart)
         end_utc = to_utc(dtend)
 
+    rrule_prop = ev.get("rrule")
+    rrule = rrule_prop.to_ical().decode() if rrule_prop is not None else None
+
     return {
         "uid": str(ev.get("uid", "")),
         "summary": str(ev.get("summary", "")),
@@ -111,5 +114,8 @@ def parse_event_ics(ics_text: str) -> dict:
         "dtstart_utc": start_utc,
         "dtend_utc": end_utc,
         "all_day": all_day,
-        "is_recurring": ev.get("rrule") is not None or ev.get("rdate") is not None,
+        "is_recurring": rrule_prop is not None or ev.get("rdate") is not None,
+        # the repeat rule as text, so the UI can show it back and edits don't
+        # silently drop recurrence
+        "rrule": rrule,
     }

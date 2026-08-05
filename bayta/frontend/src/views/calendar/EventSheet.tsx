@@ -28,6 +28,14 @@ const REPEAT_OPTIONS = [
   { value: "FREQ=YEARLY", label: "Every year" },
 ];
 
+/** Rules synced from Apple can be more specific than our four presets
+ *  (e.g. "FREQ=WEEKLY;BYDAY=MO,WE"). Offer them back verbatim so editing the
+ *  title of an iCloud event can't flatten its schedule. */
+function repeatOptionsFor(rrule: string): { value: string; label: string }[] {
+  if (!rrule || REPEAT_OPTIONS.some((o) => o.value === rrule)) return REPEAT_OPTIONS;
+  return [...REPEAT_OPTIONS, { value: rrule, label: "Repeats (keep as is)" }];
+}
+
 const field: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
@@ -76,7 +84,7 @@ export function EventSheet({ state, onClose }: Props) {
       setDate(format(occ.all_day ? new Date(occ.start.slice(0, 10) + "T12:00:00") : s, "yyyy-MM-dd"));
       setStartTime(format(s, "HH:mm"));
       setEndTime(format(e, "HH:mm"));
-      setRepeat("");
+      setRepeat(occ.rrule ?? "");
     } else {
       const day = state.defaultDay ?? new Date();
       const hour = state.defaultHour ?? 9;
@@ -246,7 +254,7 @@ export function EventSheet({ state, onClose }: Props) {
         <div>
           <span style={label}>Repeat</span>
           <select style={field} value={repeat} onChange={(e) => setRepeat(e.target.value)}>
-            {REPEAT_OPTIONS.map((o) => (
+            {repeatOptionsFor(repeat).map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

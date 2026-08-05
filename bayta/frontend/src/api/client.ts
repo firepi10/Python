@@ -6,6 +6,8 @@ export interface OccurrenceDTO {
   end: string;
   all_day: boolean;
   is_recurring: boolean;
+  /** repeat rule as stored (e.g. "FREQ=YEARLY"); null when it doesn't repeat */
+  rrule: string | null;
   calendar_id: number | null;
   calendar_name: string;
   read_only: boolean;

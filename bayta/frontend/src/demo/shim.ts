@@ -2,8 +2,37 @@
    in-memory fixture store so the published demo is fully interactive.
    State lives for the page's lifetime and resets on reload. */
 
-import { format, startOfDay } from "date-fns";
+import { addDays, addMonths, addWeeks, addYears, format, startOfDay } from "date-fns";
 import { createStore, type OccRecord, type Store } from "./fixtures";
+
+/** Expand a repeat rule the way the real backend does (whole series, no
+ *  per-occurrence exceptions), spanning the demo's browsable range. */
+function expandRepeats(record: OccRecord, rrule: string): OccRecord[] {
+  const freq = /FREQ=(\w+)/.exec(rrule.toUpperCase())?.[1];
+  if (!freq) return [];
+  const step: Record<string, (d: Date, n: number) => Date> = {
+    DAILY: addDays,
+    WEEKLY: addWeeks,
+    MONTHLY: addMonths,
+    YEARLY: addYears,
+  };
+  const advance = step[freq];
+  if (!advance) return [];
+  // enough instances to fill the window the demo lets you scroll through
+  const count = { DAILY: 400, WEEKLY: 80, MONTHLY: 36, YEARLY: 5 }[freq] ?? 12;
+
+  const start = new Date(record.start);
+  const end = new Date(record.end);
+  const out: OccRecord[] = [];
+  for (let i = 1; i <= count; i++) {
+    out.push({
+      ...record,
+      start: advance(start, i).toISOString(),
+      end: advance(end, i).toISOString(),
+    });
+  }
+  return out;
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -84,20 +113,14 @@ async function handle(store: Store, url: URL, init?: RequestInit): Promise<Respo
       end: String(body.end),
       all_day: Boolean(body.all_day),
       is_recurring: Boolean(body.rrule),
+      rrule: (body.rrule as string) ?? null,
       profile_id: profile?.id ?? null,
       color: profile?.color ?? "blue",
       profile_name: profile?.name ?? null,
     };
     store.occurrences.push(record);
     if (body.rrule) {
-      for (let w = 1; w <= 8; w++) {
-        const shift = w * 7 * 86400_000;
-        store.occurrences.push({
-          ...record,
-          start: new Date(new Date(record.start).getTime() + shift).toISOString(),
-          end: new Date(new Date(record.end).getTime() + shift).toISOString(),
-        });
-      }
+      store.occurrences.push(...expandRepeats(record, String(body.rrule)));
     }
     return json({ id, uid: `demo-${id}` }, 201);
   }
@@ -109,21 +132,27 @@ async function handle(store: Store, url: URL, init?: RequestInit): Promise<Respo
     }
     if (method === "PATCH") {
       const profile = store.profiles.find((p) => p.id === body.profile_id);
-      store.occurrences = store.occurrences.map((o) =>
-        o.event_id === id
-          ? {
-              ...o,
-              summary: String(body.summary ?? o.summary),
-              location: (body.location as string) ?? null,
-              start: String(body.start),
-              end: String(body.end),
-              all_day: Boolean(body.all_day),
-              profile_id: profile?.id ?? null,
-              color: profile?.color ?? "blue",
-              profile_name: profile?.name ?? null,
-            }
-          : o,
-      );
+      const existing = store.occurrences.find((o) => o.event_id === id);
+      // an omitted rrule keeps the current repeat, matching the real API
+      const rrule =
+        "rrule" in body ? ((body.rrule as string) ?? null) : (existing?.rrule ?? null);
+      // whole-series edit: drop the old instances and rebuild from the new base
+      store.occurrences = store.occurrences.filter((o) => o.event_id !== id);
+      const record: OccRecord = {
+        event_id: id,
+        summary: String(body.summary ?? existing?.summary ?? ""),
+        location: (body.location as string) ?? null,
+        start: String(body.start),
+        end: String(body.end),
+        all_day: Boolean(body.all_day),
+        is_recurring: Boolean(rrule),
+        rrule,
+        profile_id: profile?.id ?? null,
+        color: profile?.color ?? "blue",
+        profile_name: profile?.name ?? null,
+      };
+      store.occurrences.push(record);
+      if (rrule) store.occurrences.push(...expandRepeats(record, rrule));
       return json({ id });
     }
   }

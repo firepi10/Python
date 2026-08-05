@@ -158,6 +158,7 @@ def _pull_calendar(db: Session, client, calendar: Calendar) -> int:
                 "dtend_utc",
                 "all_day",
                 "is_recurring",
+                "rrule",
             ):
                 setattr(event, key, fields[key])
             event.last_modified = datetime.now(UTC)
