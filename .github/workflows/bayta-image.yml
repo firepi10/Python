@@ -46,20 +46,16 @@ jobs:
       # native pi-gen build: dependencies + arm64 emulation on the host, where
       # our binfmt registration is authoritative (the docker-wrapped action
       # resets binfmt itself and breaks on current runner kernels)
-      # pi-gen's native build wants the dynamic qemu (qemu-user-binfmt), which
-      # conflicts with qemu-user-static — install exactly what it checks for
-      - name: Install pi-gen host dependencies
+      # debootstrap runs arm64 binaries inside a chroot, so the emulator must be
+      # the STATIC one registered with binfmt's fix-binary flag (tonistiigi/binfmt
+      # does exactly that) — the dynamic qemu can't resolve its libs in there
+      - name: Enable arm64 emulation for chroots
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq coreutils quilt parted qemu-user-binfmt \
-            debootstrap zerofree zip dosfstools libarchive-tools libcap2-bin \
-            rsync xz-utils file curl bc xxd kmod udev binfmt-support pigz \
-            arch-test qemu-utils
-
-      - name: Verify arm64 emulation works
-        run: |
+          sudo apt-get install -y -qq qemu-user-static binfmt-support arch-test
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
           arch-test arm64
-          command -v qemu-aarch64
+          grep -l 'aarch64' /proc/sys/fs/binfmt_misc/* | head -3
 
       - name: Assemble custom pi-gen stage
         run: |
@@ -77,7 +73,10 @@ jobs:
 
       - name: Clone and configure pi-gen
         run: |
-          git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen.git
+          # bookworm-arm64 pairs 64-bit with the Bookworm packages Bayta is
+          # tested against; the plain arm64 branch now defaults to trixie
+          git clone --depth 1 --branch bookworm-arm64 \
+            https://github.com/RPi-Distro/pi-gen.git
           cp -a stage-bayta pi-gen/stage-bayta
           cat > pi-gen/config <<'EOF'
           IMG_NAME="bayta"
@@ -96,14 +95,19 @@ jobs:
           STAGE_LIST="stage0 stage1 stage2 stage-bayta"
           EOF
 
-      - name: Build image (native pi-gen)
+      # the containerised build is pi-gen's supported path for non-ARM hosts:
+      # it carries its own toolchain and runs privileged for the chroot mounts
+      - name: Build image (pi-gen in Docker)
         run: |
           cd pi-gen
-          sudo ./build.sh
+          sudo ./build-docker.sh
 
       - name: Collect image
         id: build
         run: |
+          ls -la pi-gen/deploy/ || true
+          # the containerised build writes as root
+          sudo chown -R "$USER" pi-gen/deploy
           IMG=$(ls pi-gen/deploy/*.img.xz | head -1)
           echo "found: $IMG"
           echo "image-path=$IMG" >> "$GITHUB_OUTPUT"
