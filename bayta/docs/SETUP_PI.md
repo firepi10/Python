@@ -5,13 +5,18 @@ and your Wi-Fi password. Total hands-on time: about 15 minutes plus install time
 
 ## Option A (easiest): flash the ready-made Bayta image
 
-1. Download the latest `bayta-….img.xz` — from the **bayta-image** workflow run's
-   artifacts on GitHub (Actions tab), or from a GitHub Release when one is tagged.
-2. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/), click
-   **Choose OS → Use custom**, and pick the downloaded `.img.xz`.
-3. In Imager's settings screen set your **Wi-Fi network + country** (keep the
+1. Download the latest image — from the **bayta-image** workflow run's artifacts
+   on GitHub (Actions tab; you must be signed in to GitHub for the artifact link
+   to be clickable), or from a GitHub Release when one is tagged.
+2. **Unzip the download first.** GitHub always wraps artifacts in a `.zip`;
+   inside is `bayta-….img.xz`. Point Imager at the **`.img.xz`**, never at the
+   `.zip` — Imager cannot look inside the zip, and pointing it there leaves you
+   with a card that boots to the bootloader screen instead of Bayta.
+3. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/), click
+   **Choose OS → Use custom**, and pick the unzipped `.img.xz`.
+4. In Imager's settings screen set your **Wi-Fi network + country** (keep the
    hostname `bayta`). Default login if you skip it: user `pi`, password `bayta`.
-4. Write the card, insert, power on. First boot takes a couple of minutes, then
+5. Write the card, insert, power on. First boot takes a couple of minutes, then
    the touchscreen boots straight into Bayta. Finish with the
    [first-boot checklist](#3-first-boot-checklist) below, plus
    `sudo tailscale up && sudo tailscale serve --bg 80` for remote access.
@@ -78,6 +83,8 @@ On the wall screen or from your phone at `http://bayta.local`:
 
 | Symptom | Check |
 |---|---|
+| Blue text screen listing `start4.elf not found` / `Firmware not found` / `ERROR: 00000004` | That's the Pi's bootloader saying the card has **no OS on it**. Almost always the image wasn't really written: re-flash, making sure you selected the unzipped **`.img.xz`** and not the `.zip`, and that Imager reported "Write Successful". |
+| Rainbow square that never goes away | Firmware found but the kernel didn't start — usually a bad/failing SD card. Re-flash, or try another card. |
 | Blank screen | `ssh pi@bayta.local` → `sudo systemctl status bayta-backend`, `journalctl -u bayta-backend -n 50` |
 | Touch works but misaligned in portrait | Settings → rotation is applied by the compositor; re-check the value, then reboot |
 | bayta.local not found | Give it a minute after boot; ensure your phone is on the same Wi-Fi; try the Pi's IP |

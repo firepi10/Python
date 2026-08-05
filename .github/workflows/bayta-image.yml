@@ -114,21 +114,30 @@ jobs:
 
       - name: Checksum
         run: |
-          sha256sum "${{ steps.build.outputs.image-path }}" | tee bayta-image.sha256
+          SUM=$(sha256sum "${{ steps.build.outputs.image-path }}")
+          echo "$SUM"
+          {
+            echo "### Bayta SD-card image"
+            echo ""
+            echo 'Unzip the artifact, then in Raspberry Pi Imager choose'
+            echo '**Use custom** and select the `.img.xz` file itself.'
+            echo ""
+            echo '```'
+            echo "$SUM"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
+      # exactly ONE file in the artifact: unzipping must yield the .img.xz and
+      # nothing else, or Imager can't tell which entry is the image
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
         with:
           name: bayta-sd-card-image
-          path: |
-            ${{ steps.build.outputs.image-path }}
-            bayta-image.sha256
+          path: ${{ steps.build.outputs.image-path }}
           retention-days: 90
 
       - name: Attach to release (tag builds)
         if: startsWith(github.ref, 'refs/tags/bayta-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ steps.build.outputs.image-path }}
-            bayta-image.sha256
+          files: ${{ steps.build.outputs.image-path }}
