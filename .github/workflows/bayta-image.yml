@@ -108,9 +108,56 @@ jobs:
           ls -la pi-gen/deploy/ || true
           # the containerised build writes as root
           sudo chown -R "$USER" pi-gen/deploy
-          IMG=$(ls pi-gen/deploy/*.img.xz | head -1)
+          # pi-gen exports one image per EXPORT_IMAGE stage: stage2 produces
+          # "...-lite" (plain Raspberry Pi OS) and stage-bayta produces the
+          # real one. Never use `ls | head -1` here — "-" sorts before "." so
+          # the lite image wins and we ship an OS with no Bayta on it.
+          IMG=$(ls pi-gen/deploy/*.img.xz | grep -v -- '-lite' | head -1)
+          if [ -z "$IMG" ]; then
+            echo "::error::no Bayta image in deploy/ (only the lite export?)"
+            exit 1
+          fi
           echo "found: $IMG"
           echo "image-path=$IMG" >> "$GITHUB_OUTPUT"
+
+      # never ship an unverified image again: prove it has both partitions,
+      # the Pi firmware, and Bayta itself before it leaves the runner
+      - name: Verify the image is bootable and contains Bayta
+        run: |
+          set -euo pipefail
+          sudo rm -rf pi-gen/work          # reclaim space before decompressing
+          IMG="${{ steps.build.outputs.image-path }}"
+          RAW="${IMG%.xz}"
+          xz -dk -T0 "$IMG"
+
+          echo "--- partition table ---"
+          sfdisk --json "$RAW" | tee /tmp/parts.json
+          COUNT=$(jq '.partitiontable.partitions | length' /tmp/parts.json)
+          [ "$COUNT" -ge 2 ] || { echo "::error::expected 2 partitions, got $COUNT"; exit 1; }
+
+          BOOT_OFF=$(( $(jq -r '.partitiontable.partitions[0].start' /tmp/parts.json) * 512 ))
+          ROOT_OFF=$(( $(jq -r '.partitiontable.partitions[1].start' /tmp/parts.json) * 512 ))
+
+          echo "--- boot partition ---"
+          mkdir -p /tmp/p1 /tmp/p2
+          sudo mount -o loop,ro,offset="$BOOT_OFF" "$RAW" /tmp/p1
+          ls /tmp/p1
+          for f in start4.elf fixup4.dat kernel8.img config.txt cmdline.txt; do
+            [ -f "/tmp/p1/$f" ] || { echo "::error::boot partition missing $f"; exit 1; }
+          done
+          sudo umount /tmp/p1
+
+          echo "--- root partition ---"
+          sudo mount -o loop,ro,offset="$ROOT_OFF" "$RAW" /tmp/p2
+          for p in opt/bayta/current/backend etc/systemd/system/bayta-backend.service \
+                   home/bayta/.config/labwc/autostart; do
+            [ -e "/tmp/p2/$p" ] || { echo "::error::rootfs missing $p"; exit 1; }
+          done
+          echo "Bayta version: $(cat /tmp/p2/opt/bayta/current/VERSION 2>/dev/null || echo unknown)"
+          sudo umount /tmp/p2
+
+          rm -f "$RAW"
+          echo "image verified: 2 partitions, Pi firmware present, Bayta installed"
 
       - name: Checksum
         run: |
