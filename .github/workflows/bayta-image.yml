@@ -106,8 +106,9 @@ jobs:
         id: build
         run: |
           ls -la pi-gen/deploy/ || true
-          # the containerised build writes as root
-          sudo chown -R "$USER" pi-gen/deploy
+          # the containerised build writes as root:root — take the group too,
+          # or tools that copy source attributes (xz) fail trying to chgrp back
+          sudo chown -R "$USER:$(id -gn)" pi-gen/deploy
           # pi-gen exports one image per EXPORT_IMAGE stage: stage2 produces
           # "...-lite" (plain Raspberry Pi OS) and stage-bayta produces the
           # real one. Never use `ls | head -1` here — "-" sorts before "." so
@@ -126,9 +127,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo rm -rf pi-gen/work          # reclaim space before decompressing
+          df -h /
           IMG="${{ steps.build.outputs.image-path }}"
           RAW="${IMG%.xz}"
-          xz -dk -T0 "$IMG"
+          # decompress via stdout: never copies the source file's ownership
+          xz -dc -T0 "$IMG" > "$RAW"
+          ls -l "$RAW"
 
           echo "--- partition table ---"
           sfdisk --json "$RAW" | tee /tmp/parts.json
@@ -149,11 +153,19 @@ jobs:
 
           echo "--- root partition ---"
           sudo mount -o loop,ro,offset="$ROOT_OFF" "$RAW" /tmp/p2
-          for p in opt/bayta/current/backend etc/systemd/system/bayta-backend.service \
+          for p in etc/systemd/system/bayta-backend.service \
+                   etc/systemd/system/bayta-update.timer \
                    home/bayta/.config/labwc/autostart; do
             [ -e "/tmp/p2/$p" ] || { echo "::error::rootfs missing $p"; exit 1; }
           done
-          echo "Bayta version: $(cat /tmp/p2/opt/bayta/current/VERSION 2>/dev/null || echo unknown)"
+          # /opt/bayta/current is a symlink to an ABSOLUTE path, so it resolves
+          # against the runner's root when mounted here — re-root it by hand
+          RELEASE=$(readlink "/tmp/p2/opt/bayta/current") \
+            || { echo "::error::/opt/bayta/current is not a symlink"; exit 1; }
+          echo "release: $RELEASE"
+          for p in backend/app/main.py frontend/dist/index.html venv/bin/uvicorn; do
+            [ -e "/tmp/p2${RELEASE}/$p" ] || { echo "::error::release missing $p"; exit 1; }
+          done
           sudo umount /tmp/p2
 
           rm -f "$RAW"
