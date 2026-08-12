@@ -36,6 +36,26 @@ echo "kiosk: using WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} in $XDG_RUNTIME_DIR
 
 healthy() { curl -sf "$HEALTH" >/dev/null 2>&1; }
 
+# Chromium derives its crash-database path from $HOME and asserts rather than
+# degrades when it comes out empty: crashpad launches with no --database, hits
+# NOTREACHED, and takes the zygote down with "Check failed: . : Broken pipe".
+# The browser never opens and the wall goes black. Never leave that to chance —
+# pin HOME from the passwd entry, and hand Chromium directories that exist.
+if [ -z "${HOME:-}" ] || [ ! -d "${HOME:-}" ]; then
+    HOME="$(getent passwd "$(id -u)" | cut -d: -f6)"
+    export HOME
+    echo "kiosk: HOME was unusable; using $HOME" >&2
+fi
+PROFILE_DIR="$HOME/.config/bayta-kiosk"
+CRASH_DIR=/tmp/bayta-crash
+if ! mkdir -p "$PROFILE_DIR" 2>/dev/null; then
+    # a read-only or full home is not worth dying over; /tmp is tmpfs here
+    PROFILE_DIR=/tmp/bayta-kiosk-profile
+    mkdir -p "$PROFILE_DIR"
+    echo "kiosk: $HOME/.config is not writable; profile in $PROFILE_DIR" >&2
+fi
+mkdir -p "$CRASH_DIR"
+
 # The panel is the only output this machine has. A blank screen is the one
 # outcome that tells its owner nothing, so when the backend is missing we say
 # so on the glass rather than loading a URL that will not answer.
@@ -96,12 +116,12 @@ while true; do
         --disable-infobars \
         --disable-session-crashed-bubble \
         --disable-features=TranslateUI \
-        --disable-crash-reporter \
         --autoplay-policy=no-user-gesture-required \
         --check-for-update-interval=31536000 \
         --disk-cache-dir=/tmp/bayta-chromium-cache \
         --disk-cache-size=52428800 \
-        --user-data-dir="$HOME/.config/bayta-kiosk" &
+        --crash-dumps-dir="$CRASH_DIR" \
+        --user-data-dir="$PROFILE_DIR" &
     chromium_pid=$!
 
     # Showing the fallback: the page can't poll localhost itself (a file://
