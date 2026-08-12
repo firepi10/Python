@@ -12,6 +12,28 @@ if [ -z "$CHROMIUM" ]; then
     exit 1
 fi
 
+# labwc starts this script while it is still bringing the compositor up, so the
+# Wayland socket may not exist for another moment. Chromium does not wait — it
+# prints "Failed to connect to Wayland display" and exits — so wait here, and
+# find the socket by name rather than assuming wayland-0.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+for _ in $(seq 1 30); do
+    if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then
+        break
+    fi
+    for sock in "$XDG_RUNTIME_DIR"/wayland-*; do
+        case "$sock" in *.lock) continue ;; esac
+        if [ -S "$sock" ]; then
+            WAYLAND_DISPLAY="$(basename "$sock")"
+            export WAYLAND_DISPLAY
+            break
+        fi
+    done
+    [ -n "${WAYLAND_DISPLAY:-}" ] && [ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ] && break
+    sleep 1
+done
+echo "kiosk: using WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} in $XDG_RUNTIME_DIR" >&2
+
 healthy() { curl -sf "$HEALTH" >/dev/null 2>&1; }
 
 # The panel is the only output this machine has. A blank screen is the one

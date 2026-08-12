@@ -1,16 +1,25 @@
 # Installed to ~bayta/.config/labwc/autostart by the Bayta installer.
+#
+# labwc runs this file during its own startup and waits for each foreground
+# command. Anything that talks to the compositor from here is talking to one
+# that is still coming up, so it goes in the background and time-boxed —
+# a blocking call at the top of this file means the browser below never
+# launches, and the wall shows a black screen with a working cursor forever.
 
-# Apply the persisted rotation (written by the backend's Settings screen).
-if [ -f /var/lib/bayta/rotation ]; then
-    ROT="$(cat /var/lib/bayta/rotation)"
-    OUTPUT="$(wlr-randr 2>/dev/null | awk 'NR==1{print $1}')"
-    if [ -n "$OUTPUT" ] && [ -n "$ROT" ] && [ "$ROT" != "normal" ]; then
-        wlr-randr --output "$OUTPUT" --transform "$ROT" &
-    fi
-fi
+# The kiosk first. Nothing may delay the one thing this machine exists to do.
+/opt/bayta/current/os/kiosk/kiosk-run.sh &
 
 # Wake the panel on touch while the sleep schedule has it off.
 /opt/bayta/current/os/kiosk/wake-on-touch.sh &
 
-# Chromium kiosk, restarted forever if it ever dies.
-/opt/bayta/current/os/kiosk/kiosk-run.sh &
+# Apply the persisted rotation (written by the backend's Settings screen).
+# Only when it is actually rotated: querying outputs costs a compositor
+# round-trip, and "normal" is both the default and the common case.
+(
+    ROT="$(cat /var/lib/bayta/rotation 2>/dev/null || echo normal)"
+    case "$ROT" in
+        ""|normal) exit 0 ;;
+    esac
+    OUTPUT="$(timeout 5 wlr-randr 2>/dev/null | awk 'NR==1{print $1}')"
+    [ -n "$OUTPUT" ] && timeout 5 wlr-randr --output "$OUTPUT" --transform "$ROT"
+) &
