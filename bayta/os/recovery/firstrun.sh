@@ -16,7 +16,7 @@
 set +e
 
 WIFI_SSID="YOUR_NETWORK_NAME"
-WIFI_PASSWORD="YOUR_WIFI_PASSWORD"
+WIFI_PASSWORD="YOUR_WIFI_PASSWORD"   # leave empty for an open network
 WIFI_COUNTRY="US"
 
 BOOT_DIR=/boot/firmware
@@ -31,10 +31,19 @@ if command -v raspi-config >/dev/null 2>&1; then
 fi
 rfkill unblock wifi 2>/dev/null
 
-if [ -x /usr/lib/raspberrypi-sys-mods/imager_custom ]; then
+if [ -n "$WIFI_PASSWORD" ] && [ -x /usr/lib/raspberrypi-sys-mods/imager_custom ]; then
     /usr/lib/raspberrypi-sys-mods/imager_custom set_wlan \
         -c "$WIFI_COUNTRY" "$WIFI_SSID" "$WIFI_PASSWORD"
 else
+    # An open network gets no [wifi-security] block at all — an empty psk there
+    # is not "no password", it's a malformed profile NetworkManager won't use.
+    SECURITY=""
+    if [ -n "$WIFI_PASSWORD" ]; then
+        SECURITY="[wifi-security]
+key-mgmt=wpa-psk
+psk=$WIFI_PASSWORD
+"
+    fi
     install -d -m 700 /etc/NetworkManager/system-connections
     cat >/etc/NetworkManager/system-connections/preconfigured.nmconnection <<EOF
 [connection]
@@ -46,10 +55,7 @@ autoconnect=true
 mode=infrastructure
 ssid=$WIFI_SSID
 
-[wifi-security]
-key-mgmt=wpa-psk
-psk=$WIFI_PASSWORD
-
+$SECURITY
 [ipv4]
 method=auto
 
