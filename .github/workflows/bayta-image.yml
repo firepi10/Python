@@ -8,7 +8,10 @@ on:
     # when the image recipe itself changes
     branches: ["claude/skylight-pi-os-build-uel868"]
     paths:
-      - "bayta/os/image/**"
+      # everything under os/ ends up baked into the image — scoping this to
+      # os/image/** meant installer and systemd changes shipped only via the
+      # daily self-update, never in a freshly flashed card
+      - "bayta/os/**"
       - ".github/workflows/bayta-image.yml"
 
 permissions:
