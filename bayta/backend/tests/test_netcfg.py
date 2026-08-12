@@ -21,12 +21,19 @@ def run_netcfg(tmp_path):
     bin_dir.mkdir()
     calls = bin_dir / "nmcli-calls"
 
+    tzcalls = bin_dir / "tz-calls"
+
     (bin_dir / "nmcli").write_text(
         '#!/usr/bin/env bash\n'
         f'if [ "$1" = "device" ]; then printf "%s\\n" "$*" >> "{calls}"; fi\n'
         'exit ${NMCLI_RC:-0}\n'
     )
-    for stub in ("rfkill", "raspi-config"):
+    (bin_dir / "timedatectl").write_text(
+        '#!/usr/bin/env bash\n'
+        f'printf "%s\\n" "$*" >> "{tzcalls}"\n'
+        'exit ${TIMEDATECTL_RC:-0}\n'
+    )
+    for stub in ("rfkill", "raspi-config", "systemctl"):
         (bin_dir / stub).write_text("#!/usr/bin/env bash\nexit 0\n")
     for f in bin_dir.iterdir():
         f.chmod(0o755)
@@ -44,6 +51,7 @@ def run_netcfg(tmp_path):
         return {
             "rc": proc.returncode,
             "nmcli": calls.read_text().strip() if calls.exists() else "",
+            "tz": tzcalls.read_text().strip() if tzcalls.exists() else "",
             "conf_exists": conf.exists(),
             "conf": conf.read_text() if conf.exists() else "",
             "stderr": proc.stderr,
@@ -120,3 +128,36 @@ def test_file_without_an_ssid_does_nothing(run_netcfg):
     r = run_netcfg("country=US\n# nothing useful here\n")
     assert r["nmcli"] == ""
     assert r["rc"] == 0
+
+
+def test_timezone_is_applied(run_netcfg):
+    r = run_netcfg("ssid=CTLCS\npassword=hunter2\ntimezone=America/Chicago\n")
+    assert "set-timezone America/Chicago" in r["tz"]
+    assert "device wifi connect CTLCS" in r["nmcli"]
+
+
+def test_timezone_alone_needs_no_wifi(run_netcfg):
+    """Fixing a card that is already on the network shouldn't require Wi-Fi
+    settings you don't want to re-enter."""
+    r = run_netcfg("timezone=America/Chicago\n")
+    assert "set-timezone America/Chicago" in r["tz"]
+    assert r["nmcli"] == ""
+    assert r["conf_exists"] is False, "applied and nothing secret left behind"
+    assert r["rc"] == 0
+
+
+def test_a_bogus_timezone_is_refused_not_applied(run_netcfg):
+    r = run_netcfg("timezone=Mars/Olympus_Mons\n")
+    assert r["tz"] == ""
+    assert "unknown timezone" in r["stderr"]
+    assert r["conf_exists"] is True, "leave it so the typo can be corrected"
+    assert r["rc"] == 0
+
+
+def test_timezone_survives_a_failed_wifi_join(run_netcfg):
+    """Out of range tonight, right clock anyway — and the file is kept so the
+    join retries at home."""
+    r = run_netcfg("ssid=CTLCS\npassword=x\ntimezone=America/Chicago\n", nmcli_rc=4)
+    assert "set-timezone America/Chicago" in r["tz"]
+    assert r["conf_exists"] is True
+    assert "timezone=America/Chicago" in r["conf"]

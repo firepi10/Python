@@ -26,7 +26,12 @@ and your Wi-Fi password. Total hands-on time: about 15 minutes plus install time
    ssid=YourNetworkName
    password=YourWiFiPassword
    country=US
+   timezone=America/Chicago
    ```
+
+   `timezone` is optional and works on its own, with no Wi-Fi lines at all —
+   which is how you fix the clock on a card that's already running without
+   opening an SSH session.
 
    Boot the Pi and it joins, then deletes the file so the password isn't left
    on a card anyone can read. Get it wrong and the file stays put with a note

@@ -206,6 +206,9 @@ ssid=YourNetworkName
 password=YourWiFiPassword
 country=US
 
+# Optional. Also works on its own, with no Wi-Fi lines at all:
+#timezone=America/Chicago
+
 # Open network with no password? Delete the password line entirely.
 EOF"
 }

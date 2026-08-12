@@ -10,6 +10,7 @@
 #     ssid=MyNetwork
 #     password=my-wifi-password      # omit entirely for an open network
 #     country=US
+#     timezone=America/Chicago       # optional; works on its own too
 #
 # On success the file is deleted, so the password does not sit in plain text on
 # a partition any computer can read. On failure it is left in place with a note
@@ -25,6 +26,7 @@ log() { echo "[bayta-netcfg] $*" >&2; }
 ssid=""
 password=""
 country="US"
+timezone=""
 
 # tolerate CRLF (edited on a Mac or Windows), blank lines, comments, and spaces
 while IFS= read -r raw || [ -n "$raw" ]; do
@@ -41,11 +43,38 @@ while IFS= read -r raw || [ -n "$raw" ]; do
         ssid) ssid="$value" ;;
         password|psk) password="$value" ;;
         country) country="$value" ;;
+        timezone|tz) timezone="$value" ;;
     esac
 done < "$CONF"
 
+# --- Timezone --------------------------------------------------------------
+# Wrong by an hour is wrong: every event on a family calendar is a local time.
+tz_done=0
+if [ -n "$timezone" ]; then
+    if [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
+        log "unknown timezone '$timezone'; leaving it alone"
+    elif timedatectl set-timezone "$timezone" 2>/dev/null; then
+        log "timezone set to $timezone"
+        tz_done=1
+    else
+        # timedated may not be reachable this early; do it by hand
+        ln -sf "/usr/share/zoneinfo/$timezone" /etc/localtime
+        echo "$timezone" > /etc/timezone
+        log "timezone set to $timezone (without timedatectl)"
+        tz_done=1
+    fi
+    # the clock is what the calendar renders against, so restart the backend if
+    # it is already up with the old zone loaded
+    [ "$tz_done" = 1 ] && systemctl try-restart bayta-backend.service 2>/dev/null
+fi
+
 if [ -z "$ssid" ]; then
-    log "no ssid= in $CONF; nothing to do"
+    if [ "$tz_done" = 1 ]; then
+        log "no ssid=; timezone applied, removing $CONF"
+        rm -f "$CONF"
+    else
+        log "nothing to apply from $CONF"
+    fi
     exit 0
 fi
 

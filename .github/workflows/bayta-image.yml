@@ -94,7 +94,7 @@ jobs:
           LOCALE_DEFAULT="en_US.UTF-8"
           KEYBOARD_KEYMAP="us"
           KEYBOARD_LAYOUT="English (US)"
-          TIMEZONE_DEFAULT="America/New_York"
+          TIMEZONE_DEFAULT="America/Chicago"
           # without a regulatory domain the kernel hard-blocks the Wi-Fi radio
           # via rfkill, so a card flashed without Imager's country setting can
           # never join a network. Imager's own setting overrides this.
