@@ -39,11 +39,21 @@ The image self-updates daily from this repository, same as a scripted install.
 
 ## 2. Run the installer
 
-From your computer's terminal:
+> **Run one line at a time, and never paste an `ssh` line together with the
+> commands that follow it.** Anything you paste after `ssh` sits in the
+> terminal's buffer; `ssh` swallows it as password input, and once it gives up,
+> the rest runs *on your own computer*. A stray `sudo reboot` restarts your
+> laptop, not the Pi.
+
+First, on your computer:
 
 ```bash
 ssh pi@bayta.local
-# then on the Pi:
+```
+
+Then, once you see the `pi@bayta:~ $` prompt — on the Pi:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/firepi10/Python/claude/skylight-pi-os-build-uel868/bayta/os/install.sh \
   | sudo bash -s -- \
       --repo https://github.com/firepi10/Python \
@@ -53,11 +63,17 @@ curl -fsSL https://raw.githubusercontent.com/firepi10/Python/claude/skylight-pi-
 
 The installer sets up everything: packages, the Bayta services, the kiosk session,
 quiet boot with the Bayta splash, mDNS, log-to-RAM (SD card protection), and
-Tailscale. When it finishes:
+Tailscale. When it finishes, still on the Pi:
 
 ```bash
 sudo tailscale up          # sign in once in the browser link it prints
+```
+
+```bash
 sudo tailscale serve --bg 80
+```
+
+```bash
 sudo reboot
 ```
 
@@ -88,7 +104,7 @@ On the wall screen or from your phone at `http://bayta.local`:
 | Blue text screen listing `start4.elf not found` / `Firmware not found` / `ERROR: 00000004` | That's the Pi's bootloader saying the card has **no OS on it**. Almost always the image wasn't really written: re-flash, making sure you selected the unzipped **`.img.xz`** and not the `.zip`, and that Imager reported "Write Successful". |
 | Rainbow square that never goes away | Firmware found but the kernel didn't start — usually a bad/failing SD card. Re-flash, or try another card. |
 | Boots to a black screen with a mouse cursor, then the screen sleeps for good | The compositor is running and something turned the panel off. Touch the screen — if it comes back, it was the night schedule. On builds before Aug 2026 a Pi with no network counted forward from the image's build time, decided it was past 21:30, and cut the HDMI output; update, or turn the schedule off in Settings. |
-| Flashed without setting Wi-Fi in Imager | The card is fine, but the Pi has no network, no `bayta.local`, and no clock. Fastest fix: plug in **Ethernet**, then `ssh pi@bayta.local` and `sudo nmcli device wifi connect "<SSID>" password "<password>"`. No cable? Re-flash and fill in Imager's settings — dropping a `custom.toml` on the boot partition won't help, because that is only read on a card's *first* boot. |
+| Flashed without setting Wi-Fi in Imager | The card is fine, but the Pi has no network, no `bayta.local`, and no clock. Fastest fix: plug in **Ethernet** (straight into your computer works — mDNS finds it over link-local), `ssh pi@bayta.local`, and *then*, one line at a time on the Pi: `sudo nmcli device wifi connect "<SSID>" password "<password>"`, `sudo timedatectl set-ntp true`, `timedatectl` (expect `System clock synchronized: yes`). No cable? Re-flash and fill in Imager's settings — dropping a `custom.toml` on the boot partition won't help, because that is only read on a card's *first* boot. |
 | Blank screen | `ssh pi@bayta.local` → `sudo systemctl status bayta-backend`, `journalctl -u bayta-backend -n 50` |
 | Touch works but misaligned in portrait | Settings → rotation is applied by the compositor; re-check the value, then reboot |
 | bayta.local not found | Give it a minute after boot; ensure your phone is on the same Wi-Fi; try the Pi's IP |
