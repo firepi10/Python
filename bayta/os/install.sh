@@ -72,15 +72,34 @@ install_packages() {
     log "installing packages"
     export DEBIAN_FRONTEND=noninteractive
     run apt-get update -qq
-    run apt-get install -y -qq \
-        git curl jq avahi-daemon \
-        python3-venv python3-pip \
-        chromium-browser labwc wlr-randr seatd libinput-tools \
-        plymouth plymouth-themes \
-        zram-tools unattended-upgrades \
-        fonts-noto-color-emoji || true
+    # One apt call for the whole list means a single unavailable package
+    # installs *nothing* — and the old trailing `|| true` then hid that until
+    # the kiosk silently failed to start hours later. Group by consequence:
+    # essentials abort the install, extras only warn.
+    run apt-get install -y -qq git curl jq avahi-daemon python3-venv python3-pip
+    run apt-get install -y -qq labwc wlr-randr seatd libinput-tools
+
+    # Raspberry Pi OS calls it chromium-browser, Debian calls it chromium.
+    if ! run apt-get install -y -qq chromium-browser; then
+        log "chromium-browser unavailable; trying chromium"
+        run apt-get install -y -qq chromium
+    fi
+
+    run apt-get install -y -qq plymouth plymouth-themes zram-tools \
+        unattended-upgrades fonts-noto-color-emoji \
+        || log "some optional packages were skipped"
     # wlopm is tiny and sometimes missing from the repos; best effort
     run apt-get install -y -qq wlopm || log "wlopm unavailable; sleep mode will be limited"
+
+    # The kiosk is the entire point of the appliance. Missing browser = a black
+    # screen with a cursor and no clue why, so refuse to finish quietly.
+    if [ "$DRY_RUN" != 1 ] && [ "$WITH_KIOSK" = 1 ]; then
+        if ! command -v chromium-browser >/dev/null 2>&1 \
+           && ! command -v chromium >/dev/null 2>&1; then
+            echo "no chromium binary after install — the kiosk cannot start" >&2
+            exit 1
+        fi
+    fi
 }
 
 create_user() {

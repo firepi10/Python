@@ -173,6 +173,13 @@ jobs:
           for p in backend/app/main.py frontend/dist/index.html venv/bin/uvicorn; do
             [ -e "/tmp/p2${RELEASE}/$p" ] || { echo "::error::release missing $p"; exit 1; }
           done
+          # the kiosk browser and compositor ARE the appliance; without them the
+          # Pi boots to a black screen with a cursor and says nothing about why
+          ls /tmp/p2/usr/bin/chromium* 2>/dev/null || true
+          [ -x /tmp/p2/usr/bin/chromium-browser ] || [ -x /tmp/p2/usr/bin/chromium ] \
+            || { echo "::error::no chromium in the image — kiosk cannot start"; exit 1; }
+          [ -x /tmp/p2/usr/bin/labwc ] \
+            || { echo "::error::no labwc in the image — no compositor"; exit 1; }
           sudo umount /tmp/p2
 
           rm -f "$RAW"
