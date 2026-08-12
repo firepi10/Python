@@ -92,6 +92,10 @@ jobs:
           KEYBOARD_KEYMAP="us"
           KEYBOARD_LAYOUT="English (US)"
           TIMEZONE_DEFAULT="America/New_York"
+          # without a regulatory domain the kernel hard-blocks the Wi-Fi radio
+          # via rfkill, so a card flashed without Imager's country setting can
+          # never join a network. Imager's own setting overrides this.
+          WPA_COUNTRY="US"
           STAGE_LIST="stage0 stage1 stage2 stage-bayta"
           EOF
 
