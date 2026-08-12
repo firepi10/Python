@@ -82,12 +82,28 @@ def test_config_is_deleted_once_connected(run_netcfg):
 
 
 def test_failed_join_keeps_the_file_and_says_so(run_netcfg):
-    """A typo has to be correctable without re-flashing the card."""
+    """A typo — or a card configured at work and booted at home — has to be
+    recoverable without re-flashing."""
     r = run_netcfg("ssid=Typo\npassword=nope\n", nmcli_rc=4)
     assert r["conf_exists"] is True
-    assert "FAILED to join" in r["conf"]
+    assert "Could not join" in r["conf"]
+    assert "out of range" in r["conf"]
     assert "ssid=Typo" in r["conf"]
     assert r["rc"] == 0, "a bad password must never wedge the boot"
+
+
+def test_the_settings_survive_repeated_failures(tmp_path, run_netcfg, monkeypatch):
+    """Booted out of range for days, the file must stay parseable and not grow
+    a new complaint every time — it still has to work on the boot that counts."""
+    r = run_netcfg("ssid=CTLCS\npassword=hunter2\n", nmcli_rc=4)
+    for _ in range(3):
+        r = run_netcfg(r["conf"], nmcli_rc=4)
+    assert r["conf"].count("Could not join") == 1
+
+    # and the settings still parse on the boot where the network is in range
+    ok = run_netcfg(r["conf"])
+    assert "device wifi connect CTLCS password hunter2" in ok["nmcli"]
+    assert ok["conf_exists"] is False
 
 
 def test_no_file_is_a_no_op(tmp_path, run_netcfg):

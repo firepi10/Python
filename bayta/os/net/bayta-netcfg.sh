@@ -71,7 +71,11 @@ if [ "$rc" -eq 0 ]; then
     rm -f "$CONF"
 else
     log "could not join '$ssid' (exit $rc); leaving $CONF in place"
-    printf '\n# FAILED to join "%s" on the last boot — check the name and password.\n' \
-        "$ssid" >> "$CONF"
+    # Out of range is as likely as a typo — the card gets configured wherever
+    # its owner happens to be, and booted somewhere else. Keep the settings and
+    # retry every boot; say so rather than blaming the password.
+    note="# Could not join \"$ssid\" — out of range here, or the name/password is wrong."
+    grep -qF "$note" "$CONF" || printf '\n%s\n# Settings kept; it retries on every boot.\n' \
+        "$note" >> "$CONF"
 fi
 exit 0
