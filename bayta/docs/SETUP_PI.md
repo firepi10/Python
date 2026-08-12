@@ -73,8 +73,10 @@ On the wall screen or from your phone at `http://bayta.local`:
       Verify: add an event on your iPhone → it appears on the wall within
       ~5 minutes; add one on the wall → it appears on your iPhone.
 - [ ] **Photos → iCloud album**: paste your shared-album link ([how](ICLOUD.md)).
-- [ ] **Settings → Display & sleep**: set the night schedule; verify the panel
-      turns off at the "off" time and a touch wakes it.
+- [ ] **Settings → Display & sleep**: the night schedule ships **off** — turn it
+      on and set your hours, then verify the panel turns off at the "off" time
+      and a touch wakes it. (It is also ignored until the Pi has set its clock
+      from the network, so a Pi that never reached Wi-Fi can't blank itself.)
 - [ ] Leave it idle past the timeout → the photo screensaver starts.
 - [ ] On both iPhones: [set up Tailscale + Add to Home Screen](REMOTE.md);
       verify photo upload works with Wi-Fi off (cellular).
@@ -85,6 +87,8 @@ On the wall screen or from your phone at `http://bayta.local`:
 |---|---|
 | Blue text screen listing `start4.elf not found` / `Firmware not found` / `ERROR: 00000004` | That's the Pi's bootloader saying the card has **no OS on it**. Almost always the image wasn't really written: re-flash, making sure you selected the unzipped **`.img.xz`** and not the `.zip`, and that Imager reported "Write Successful". |
 | Rainbow square that never goes away | Firmware found but the kernel didn't start — usually a bad/failing SD card. Re-flash, or try another card. |
+| Boots to a black screen with a mouse cursor, then the screen sleeps for good | The compositor is running and something turned the panel off. Touch the screen — if it comes back, it was the night schedule. On builds before Aug 2026 a Pi with no network counted forward from the image's build time, decided it was past 21:30, and cut the HDMI output; update, or turn the schedule off in Settings. |
+| Flashed without setting Wi-Fi in Imager | The card is fine, but the Pi has no network, no `bayta.local`, and no clock. Fastest fix: plug in **Ethernet**, then `ssh pi@bayta.local` and `sudo nmcli device wifi connect "<SSID>" password "<password>"`. No cable? Re-flash and fill in Imager's settings — dropping a `custom.toml` on the boot partition won't help, because that is only read on a card's *first* boot. |
 | Blank screen | `ssh pi@bayta.local` → `sudo systemctl status bayta-backend`, `journalctl -u bayta-backend -n 50` |
 | Touch works but misaligned in portrait | Settings → rotation is applied by the compositor; re-check the value, then reboot |
 | bayta.local not found | Give it a minute after boot; ensure your phone is on the same Wi-Fi; try the Pi's IP |

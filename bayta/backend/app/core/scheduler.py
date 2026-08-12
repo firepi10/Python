@@ -68,6 +68,7 @@ def _sleep_tick() -> None:
     from app.core.events import bus
     from app.db.session import session_factory
     from app.services import display_service, settings_service
+    from app.services.clock_service import clock_is_trustworthy
     from app.services.sleep_service import should_be_asleep
 
     db = session_factory()()
@@ -76,6 +77,14 @@ def _sleep_tick() -> None:
     finally:
         db.close()
     if not cfg.get("enabled"):
+        return
+    if not clock_is_trustworthy():
+        # A Pi that never reached the network is counting up from the image's
+        # build time. Blanking on that clock makes the screen look dead with no
+        # way back, so wait for NTP before honouring the schedule.
+        logger.warning("clock not NTP-synced yet; skipping sleep schedule")
+        if not display_service.is_display_on():
+            display_service.display_on()
         return
     asleep = should_be_asleep(
         datetime.now(), cfg.get("off", "21:30"), cfg.get("on", "06:30")

@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from app.db.models import Setting
 
 DEFAULTS: dict[str, Any] = {
-    "sleep_schedule": {"enabled": True, "off": "21:30", "on": "06:30"},
+    # Off until the owner turns it on in Settings: a brand-new device blanking
+    # itself on night one reads as broken hardware, not as a feature.
+    "sleep_schedule": {"enabled": False, "off": "21:30", "on": "06:30"},
     "idle_timeout_s": 300,
     "orientation": "landscape",
     "theme": "auto",  # auto|light|dark
