@@ -14,8 +14,25 @@ and your Wi-Fi password. Total hands-on time: about 15 minutes plus install time
    with a card that boots to the bootloader screen instead of Bayta.
 3. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/), click
    **Choose OS → Use custom**, and pick the unzipped `.img.xz`.
-4. In Imager's settings screen set your **Wi-Fi network + country** (keep the
-   hostname `bayta`). Default login if you skip it: user `pi`, password `bayta`.
+4. **Don't skip Imager's settings screen** (the gear / "Edit Settings" button
+   before writing). Set your **Wi-Fi network, password, and country**, and keep
+   the hostname `bayta`. Default login: user `pi`, password `bayta`.
+
+   Skipped it, or typed the password wrong? You don't have to re-flash. Put the
+   card back in your computer, and on the boot partition (`bootfs`, the one that
+   mounts automatically) create a file called **`bayta-wifi.txt`**:
+
+   ```
+   ssid=YourNetworkName
+   password=YourWiFiPassword
+   country=US
+   ```
+
+   Boot the Pi and it joins, then deletes the file so the password isn't left
+   on a card anyone can read. Get it wrong and the file stays put with a note
+   appended — fix it and reboot. An open network with no password: leave the
+   `password` line out entirely. A copy of this template is already on the boot
+   partition as `bayta-wifi.txt.example`.
 5. Write the card, insert, power on. First boot takes a couple of minutes, then
    the touchscreen boots straight into Bayta. Finish with the
    [first-boot checklist](#3-first-boot-checklist) below, plus

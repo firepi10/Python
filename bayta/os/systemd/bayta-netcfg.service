@@ -1,0 +1,17 @@
+[Unit]
+Description=Bayta: apply Wi-Fi settings dropped on the boot partition
+# needs NetworkManager up to use nmcli, and must finish before anything waits
+# on the network actually being usable
+After=NetworkManager.service boot-firmware.mount
+Wants=NetworkManager.service
+Before=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/bayta/current/os/net/bayta-netcfg.sh
+# a bad password must never wedge the boot
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target

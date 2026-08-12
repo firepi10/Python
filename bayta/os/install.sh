@@ -149,6 +149,8 @@ install_services() {
     run cp /opt/bayta/current/os/systemd/bayta-backend.service /etc/systemd/system/
     run cp /opt/bayta/current/os/systemd/bayta-update.service /etc/systemd/system/
     run cp /opt/bayta/current/os/systemd/bayta-update.timer /etc/systemd/system/
+    run cp /opt/bayta/current/os/systemd/bayta-netcfg.service /etc/systemd/system/
+    run chmod +x /opt/bayta/current/os/net/bayta-netcfg.sh
     run cp /opt/bayta/current/os/config/journald-bayta.conf /etc/systemd/journald.conf.d/bayta.conf 2>/dev/null || {
         run install -d /etc/systemd/journald.conf.d
         run cp /opt/bayta/current/os/config/journald-bayta.conf /etc/systemd/journald.conf.d/bayta.conf
@@ -158,10 +160,11 @@ install_services() {
     run bash -c 'echo "bayta ALL=(root) NOPASSWD: /usr/bin/systemctl start bayta-update.service" > /etc/sudoers.d/bayta && chmod 440 /etc/sudoers.d/bayta'
     if [ "$IMAGE_BUILD" = 1 ]; then
         # chroot: no running systemd — enable only; services start on first boot
-        run systemctl enable bayta-backend.service bayta-update.timer avahi-daemon
+        run systemctl enable bayta-backend.service bayta-update.timer bayta-netcfg.service avahi-daemon
     else
         run systemctl daemon-reload
         run systemctl enable --now bayta-backend.service bayta-update.timer avahi-daemon
+        run systemctl enable bayta-netcfg.service
     fi
 }
 
@@ -180,6 +183,31 @@ setup_kiosk() {
 ExecStart=
 ExecStart=-/sbin/agetty --autologin bayta --noclear %I \$TERM
 EOF'
+}
+
+setup_wifi_dropfile() {
+    # Leave instructions where someone with only an SD card reader will find
+    # them: the FAT boot partition is the one macOS and Windows will mount.
+    local boot=/boot/firmware
+    [ -d "$boot" ] || boot=/boot
+    [ -d "$boot" ] || return 0
+    [ -f "$boot/bayta-wifi.txt.example" ] && return 0
+    log "writing $boot/bayta-wifi.txt.example"
+    run bash -c "cat > '$boot/bayta-wifi.txt.example' <<'EOF'
+# Bayta Wi-Fi setup.
+#
+# Rename this file to  bayta-wifi.txt  (drop the .example), fill it in, and
+# boot the Pi. It joins the network, then deletes the file so your password
+# isn't left in plain text on a card any computer can read.
+#
+# Wrong password? The file stays put with a note appended — fix it and reboot.
+
+ssid=YourNetworkName
+password=YourWiFiPassword
+country=US
+
+# Open network with no password? Delete the password line entirely.
+EOF"
 }
 
 setup_boot_polish() {
@@ -261,6 +289,7 @@ build_backend
 build_frontend
 install_services
 setup_kiosk
+setup_wifi_dropfile
 setup_boot_polish
 setup_hostname
 setup_tailscale
