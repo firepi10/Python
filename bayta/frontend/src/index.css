@@ -17,8 +17,13 @@ body {
   user-select: none;
 }
 
-.kiosk * {
-  cursor: none !important;
+/* Hide the cursor only on touch hardware: with a mouse attached (a fine
+   pointer — dev rigs, debugging), an invisible cursor makes every click land
+   blind and the whole UI reads as dead. */
+@media (pointer: coarse) {
+  .kiosk * {
+    cursor: none !important;
+  }
 }
 
 .tnum {
