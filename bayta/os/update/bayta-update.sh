@@ -46,10 +46,16 @@ build_release() {
     "$dest/venv/bin/pip" install -q "$dest/backend" --cache-dir "$ROOT/shared/pip-cache" || return 1
     if [ ! -d "$dest/frontend/dist" ]; then
         # image installs ship no node at all — a source update must bring it,
-        # same as install.sh's build_frontend does
-        if ! command -v npm >/dev/null 2>&1; then
-            log "installing node for the frontend build"
-            apt-get install -y -qq nodejs npm >/dev/null || return 1
+        # same as install.sh's build_frontend does. The toolchain needs
+        # node >= 20 (react-router 7 refuses less; tailwind's native binding
+        # fails to resolve under bookworm's node 18 npm), so use NodeSource.
+        local node_major=0
+        command -v node >/dev/null 2>&1 && node_major="$(node -p 'process.versions.node.split(".")[0]')"
+        if [ "$node_major" -lt 20 ] || ! command -v npm >/dev/null 2>&1; then
+            log "installing node 22 for the frontend build (found ${node_major})"
+            apt-get purge -y -qq npm >/dev/null 2>&1 || true
+            curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || return 1
+            apt-get install -y -qq nodejs >/dev/null || return 1
         fi
         (cd "$dest/frontend" && npm install --no-audit --no-fund >/dev/null && npm run build >/dev/null) || return 1
     fi

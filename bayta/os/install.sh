@@ -157,8 +157,15 @@ build_frontend() {
         return
     fi
     log "building frontend (installing node)"
-    if ! command -v npm >/dev/null 2>&1; then
-        run apt-get install -y -qq nodejs npm
+    # the toolchain (react-router 7, vite 6, tailwind 4) needs node >= 20;
+    # bookworm ships 18, so use the NodeSource repo when the system node is
+    # missing or too old
+    local node_major=0
+    command -v node >/dev/null 2>&1 && node_major="$(node -p 'process.versions.node.split(".")[0]')"
+    if [ "$node_major" -lt 20 ] || ! command -v npm >/dev/null 2>&1; then
+        run bash -c "apt-get purge -y -qq npm >/dev/null 2>&1 || true"
+        run bash -c "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -"
+        run apt-get install -y -qq nodejs
     fi
     run sudo -u bayta bash -c "cd /opt/bayta/current/frontend && npm install --no-audit --no-fund && npm run build"
 }
