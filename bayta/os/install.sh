@@ -191,6 +191,9 @@ setup_kiosk() {
     [ "$WITH_KIOSK" = 1 ] || return 0
     log "configuring kiosk session"
     run install -o bayta -g bayta /opt/bayta/current/os/kiosk/bash_profile /home/bayta/.bash_profile
+    # install -d only chowns the final component; create .config explicitly
+    # or it ends up root-owned and the kiosk can't keep its profile in $HOME
+    run install -d -o bayta -g bayta /home/bayta/.config
     run install -d -o bayta -g bayta /home/bayta/.config/labwc
     run install -o bayta -g bayta /opt/bayta/current/os/kiosk/labwc-autostart /home/bayta/.config/labwc/autostart
     run chmod +x /opt/bayta/current/os/kiosk/kiosk-run.sh /opt/bayta/current/os/kiosk/wake-on-touch.sh
