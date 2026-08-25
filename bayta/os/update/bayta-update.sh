@@ -20,7 +20,7 @@ set -euo pipefail
 ROOT="${BAYTA_ROOT:-/opt/bayta}"
 ETC="${BAYTA_ETC:-/etc/bayta}"
 SYSTEMCTL="${SYSTEMCTL:-systemctl}"
-HEALTH_CMD="${HEALTH_CMD:-curl -sf http://localhost/api/health}"
+HEALTH_CMD="${HEALTH_CMD:-curl -sf http://localhost/api/health && curl -sf -o /dev/null http://localhost/}"
 HEALTH_TRIES="${HEALTH_TRIES:-30}"
 
 # logs go to stderr: the fetch_* functions communicate the new release path
@@ -39,13 +39,25 @@ build_release() {
     if [ -n "${BAYTA_SKIP_BUILD:-}" ]; then
         return 0
     fi
-    python3 -m venv "$dest/venv"
-    "$dest/venv/bin/pip" install -q --upgrade pip --cache-dir "$ROOT/shared/pip-cache"
-    "$dest/venv/bin/pip" install -q "$dest/backend" --cache-dir "$ROOT/shared/pip-cache"
-    if [ ! -d "$dest/frontend/dist" ] && command -v npm >/dev/null 2>&1; then
-        (cd "$dest/frontend" && npm install --no-audit --no-fund >/dev/null && npm run build >/dev/null)
+    # explicit `|| return 1` throughout: the caller invokes this in an `if`,
+    # which suspends errexit inside the function
+    python3 -m venv "$dest/venv" || return 1
+    "$dest/venv/bin/pip" install -q --upgrade pip --cache-dir "$ROOT/shared/pip-cache" || return 1
+    "$dest/venv/bin/pip" install -q "$dest/backend" --cache-dir "$ROOT/shared/pip-cache" || return 1
+    if [ ! -d "$dest/frontend/dist" ]; then
+        # image installs ship no node at all — a source update must bring it,
+        # same as install.sh's build_frontend does
+        if ! command -v npm >/dev/null 2>&1; then
+            log "installing node for the frontend build"
+            apt-get install -y -qq nodejs npm >/dev/null || return 1
+        fi
+        (cd "$dest/frontend" && npm install --no-audit --no-fund >/dev/null && npm run build >/dev/null) || return 1
     fi
-    (cd "$dest/backend" && BAYTA_DATA_DIR=/var/lib/bayta "$dest/venv/bin/alembic" upgrade head)
+    if [ ! -f "$dest/frontend/dist/index.html" ]; then
+        log "frontend build produced no dist — refusing to ship a release without a UI"
+        return 1
+    fi
+    (cd "$dest/backend" && BAYTA_DATA_DIR=/var/lib/bayta "$dest/venv/bin/alembic" upgrade head) || return 1
 }
 
 fetch_git() {
@@ -124,7 +136,11 @@ main() {
         exit 0
     fi
 
-    build_release "$new_release"
+    if ! build_release "$new_release"; then
+        log "build FAILED — quarantining $new_release, keeping the current release"
+        touch "$new_release/.bad" 2>/dev/null || true
+        exit 1
+    fi
 
     log "switching to $new_release"
     ln -sfn "$new_release" "$ROOT/current.tmp"
